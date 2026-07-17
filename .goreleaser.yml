@@ -30,7 +30,8 @@ builds:
       - arm64
       - arm
     goarm:
-      - "6"
+      # Single GOARM only: both 6 and 7 produce Arch=arm and collide on
+      # {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.zip
       - "7"
     ignore:
       - goos: darwin
