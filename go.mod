@@ -1,0 +1,46 @@
+module github.com/tatacommunications/terraform-provider-vayucloud
+
+go 1.25.0
+
+require (
+	// Core framework for building Terraform providers using the plugin framework
+	// Used in: provider.go, resource_firewall.go, main.go
+	github.com/hashicorp/terraform-plugin-framework v1.19.0
+
+	// Validation helpers for schema attributes (string length, int ranges, etc.)
+	// Used in: resource_firewall.go for validating firewall rule fields
+	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
+
+	// Low-level Terraform plugin protocol implementation
+	// Used in: resource_firewall_test.go for test provider factories
+	github.com/hashicorp/terraform-plugin-go v0.31.0 // indirect
+
+	// Structured logging for Terraform providers
+	// Used in: client.go, firewall.go, provider.go, resource_firewall.go
+	github.com/hashicorp/terraform-plugin-log v0.10.0
+)
+
+// Indirect dependencies - automatically managed by Go modules
+// These are transitive dependencies required by the direct dependencies above
+require (
+	github.com/fatih/color v1.19.0 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/hashicorp/go-hclog v1.6.3 // indirect
+	github.com/hashicorp/go-plugin v1.8.0 // indirect
+	github.com/hashicorp/go-uuid v1.0.3 // indirect
+	github.com/hashicorp/terraform-registry-address v0.4.0 // indirect
+	github.com/hashicorp/terraform-svchost v0.2.1 // indirect
+	github.com/hashicorp/yamux v0.1.2 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
+	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
+	github.com/oklog/run v1.2.0 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260630182238-925bb5da69e7 // indirect
+	google.golang.org/grpc v1.82.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
+)

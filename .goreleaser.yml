@@ -1,0 +1,114 @@
+# GoReleaser configuration for terraform-provider-vayucloud
+#
+# This configuration is used for automated releases when publishing
+# the provider to the Terraform Registry or GitHub Releases.
+#
+# For more information: https://goreleaser.com/
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    ldflags:
+      - '-s -w -X main.version={{.Version}}'
+    goos:
+      - freebsd
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm64
+    binary: '{{ .ProjectName }}_v{{ .Version }}'
+
+archives:
+  - format: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    args:
+      # GPG signing for Terraform Registry
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
+release:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+  # GitHub release configuration
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## VayuCloud Terraform Provider {{ .Version }}
+
+    ### Installation
+
+    ```hcl
+    terraform {
+      required_providers {
+        vayucloud = {
+          source  = "tatacommunicationsvayu/vayucloud"
+          version = "{{ .Version }}"
+        }
+      }
+    }
+    ```
+
+  footer: |
+    **Full Changelog**: https://github.com/tatacommunications/terraform-provider-vayucloud/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\(.+\))?\!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\(.+\))?\!?:.+$'
+      order: 1
+    - title: 'Other'
+      order: 999
+
