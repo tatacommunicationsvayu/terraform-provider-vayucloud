@@ -21,8 +21,8 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+" # Release tags
       - "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+" # Release candidate tags
 
-concurreny:
-  group: release-${{github.workflow}}-${{github.ref}}
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
