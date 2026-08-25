@@ -27,17 +27,41 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: Retrieve all audit logs for an engagement
-# =============================================================================
+variable "engagement_id" {
+  type        = number
+  description = "Engagement ID whose audit logs to retrieve."
+}
 
-# =============================================================================
-# Example 2: Filter audit logs using server-side request body filters
-# =============================================================================
+variable "request_status" {
+  type        = string
+  description = "Optional server-side request status filter (for example Completed)."
+  default     = null
+  nullable    = true
+}
+
+variable "resource_category" {
+  type        = string
+  description = "Optional server-side resource category filter."
+  default     = null
+  nullable    = true
+}
+
+variable "action_filter" {
+  type        = list(string)
+  description = "Client-side filter values for action."
+  default     = []
+}
+
+variable "status_filter" {
+  type        = list(string)
+  description = "Client-side filter values for status."
+  default     = []
+}
+
 data "vayucloud_account_engagement_auditlog" "by_status" {
-  engagement_id     = xxxxx
-  request_status    = "Completed"
-  resource_category = "xxxx"
+  engagement_id     = var.engagement_id
+  request_status    = var.request_status
+  resource_category = var.resource_category
 }
 
 output "completed_audit_logs" {
@@ -45,21 +69,23 @@ output "completed_audit_logs" {
   value       = data.vayucloud_account_engagement_auditlog.by_status.audit_logs
 }
 
-# =============================================================================
-# Example 3: Use client-side filter blocks for additional filtering
-# =============================================================================
-
 data "vayucloud_account_engagement_auditlog" "filtered" {
-  engagement_id = xxxxx
+  engagement_id = var.engagement_id
 
-  filter {
-    name   = "action"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.action_filter) > 0 ? [var.action_filter] : []
+    content {
+      name   = "action"
+      values = filter.value
+    }
   }
 
-  filter {
-    name   = "status"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.status_filter) > 0 ? [var.status_filter] : []
+    content {
+      name   = "status"
+      values = filter.value
+    }
   }
 }
 

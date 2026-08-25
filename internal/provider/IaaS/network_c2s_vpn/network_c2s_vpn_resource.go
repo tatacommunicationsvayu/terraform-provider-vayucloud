@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_zone"
 )
 
 var _ resource.Resource = &NetworkC2SVPNResource{}
@@ -47,6 +48,7 @@ type VPNUserModel struct {
 // NetworkC2SVPNResourceModel is the Terraform model.
 type NetworkC2SVPNResourceModel struct {
 	FirewallID types.Int64  `tfsdk:"firewall_id"`
+	ZoneID     types.Int64  `tfsdk:"zone_id"`
 	ID         types.String `tfsdk:"id"`
 
 	PricingModel types.String   `tfsdk:"pricing_model"`
@@ -91,6 +93,13 @@ func (r *NetworkC2SVPNResource) Schema(ctx context.Context, req resource.SchemaR
 			},
 			"firewall_id": schema.Int64Attribute{
 				Description: "The firewall resource ID this VPN is created on.",
+				Required:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
+			},
+			"zone_id": schema.Int64Attribute{
+				Description: "The network zone ID associated with this VPN. Not returned by the read API; value is preserved from configuration.",
 				Required:    true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
@@ -142,9 +151,10 @@ func (r *NetworkC2SVPNResource) Schema(ctx context.Context, req resource.SchemaR
 									"Password must contain at least one digit",
 								),
 								stringvalidator.RegexMatches(
-									passwordRegexSpecial,
-									"Password must contain at least one special character from the allowed set",
+									regexp.MustCompile(`[<>\(\)#"]`),
+									`Password must contain at least one special character from the set < > ( ) # "`,
 								),
+			
 							},
 						},
 					},
@@ -250,6 +260,9 @@ func (r *NetworkC2SVPNResource) ModifyPlan(ctx context.Context, req resource.Mod
 	if plan.FirewallID.IsUnknown() {
 		return
 	}
+	if plan.ZoneID.IsUnknown() {
+		return
+	}
 	for _, u := range plan.Users {
 		if u.Name.IsUnknown() {
 			return
@@ -263,6 +276,11 @@ func (r *NetworkC2SVPNResource) ModifyPlan(ctx context.Context, req resource.Mod
 
 	if err := network_firewall.ValidateFirewallExists(r.client, ctx, plan.FirewallID.ValueInt64()); err != nil {
 		resp.Diagnostics.AddError("Invalid firewall_id", err.Error())
+		return
+	}
+
+	if err := network_zone.ValidateNetworkZoneExists(r.client, ctx, plan.ZoneID.ValueInt64()); err != nil {
+		resp.Diagnostics.AddError("Invalid zone_id", err.Error())
 		return
 	}
 }
@@ -383,6 +401,7 @@ func (r *NetworkC2SVPNResource) refreshReadIntoModel(ctx context.Context, data *
 		return err
 	}
 
+	// zone_id is not returned by the VPN read API; preserve the configured value in state.
 	data.PreSharedKey = types.StringValue(readData.PreSharedKey)
 	data.VPNName = types.StringValue(readData.VPNName)
 	data.VPNStatus = types.StringValue(readData.VPNStatus)
@@ -428,6 +447,10 @@ func (r *NetworkC2SVPNResource) Update(ctx context.Context, req resource.UpdateR
 
 	if err := network_firewall.ValidateFirewallExists(r.client, ctx, fwID); err != nil {
 		resp.Diagnostics.AddError("Invalid firewall_id", err.Error())
+		return
+	}
+	if err := network_zone.ValidateNetworkZoneExists(r.client, ctx, plan.ZoneID.ValueInt64()); err != nil {
+		resp.Diagnostics.AddError("Invalid zone_id", err.Error())
 		return
 	}
 	remoteNames := userNamesSet(state.Users)
@@ -481,7 +504,7 @@ func (r *NetworkC2SVPNResource) Update(ctx context.Context, req resource.UpdateR
 		// lastAudit = al
 	}
 
-	// Refresh state fields
+	// Refresh API-derived fields only; zone_id is config-managed (not returned by read).
 	plan.ID = types.StringValue(strconv.FormatInt(fwID, 10))
 	if err := r.refreshReadIntoModel(ctx, &plan, fwID); err != nil {
 		resp.Diagnostics.AddError("Error Reading C2S VPN After Update", err.Error())

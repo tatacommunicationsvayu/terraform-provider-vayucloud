@@ -63,7 +63,7 @@ type AuthToken struct {
 	ExpiresAt time.Time `json:"-"`
 
 	// ExpiresAt is the calculated expiration time
-	RefreshExpiresIn int64 `json:"refreshExpiresIn"`
+	RefreshExpiresIn int64     `json:"refreshExpiresIn"`
 	RefreshExpiresAt time.Time `json:"-"`
 
 	// RefreshToken can be used to obtain a new access token (optional)
@@ -255,6 +255,132 @@ func redactedRequestHeaders(h http.Header) map[string]string {
 	return out
 }
 
+// DoICSRequest performs an authenticated request to ICS operations endpoints and returns
+// the response body for any HTTP status. ICS callers parse Catalyst {"status","message"} envelopes.
+// Other modules should continue using DoRequest.
+func (c *Client) DoICSRequest(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		token, err := c.GetToken(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get authentication token: %w", err)
+		}
+
+		var bodyReader io.Reader
+		if body != nil {
+			bodyBytes, err := json.Marshal(body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
+			bodyReader = bytes.NewReader(bodyBytes)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, APIURL+path, bodyReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("X-Vayu-Client-Id", "vayu_iac")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute request: %w", err)
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", readErr)
+		}
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close response body: %w", closeErr)
+		}
+		
+
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
+			tflog.Debug(ctx, "ICS request received 401, attempting to re-authenticate")
+			if err := c.Authenticate(ctx); err != nil {
+				return nil, fmt.Errorf("re-authentication failed: %w", err)
+			}
+			continue
+		}
+
+		return respBody, nil
+	}
+
+	return nil, fmt.Errorf("ICS request failed after re-authentication")
+}
+
+// ICSHTTPResponse is the raw HTTP result from an ICS operations call (status, headers, body).
+// ICS modules that need response headers (e.g. AUDIT_ID on failures) use DoICSRequestEx.
+type ICSHTTPResponse struct {
+	StatusCode int
+	Headers    http.Header
+	Body       []byte
+}
+
+// DoICSRequestEx performs the same authenticated ICS request as DoICSRequest but also
+// returns HTTP status and response headers. DoICSRequest is unchanged for existing callers.
+func (c *Client) DoICSRequestEx(ctx context.Context, method, path string, body interface{}) (*ICSHTTPResponse, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		token, err := c.GetToken(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get authentication token: %w", err)
+		}
+
+		var bodyReader io.Reader
+		if body != nil {
+			bodyBytes, err := json.Marshal(body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
+			bodyReader = bytes.NewReader(bodyBytes)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, APIURL+path, bodyReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("X-Vayu-Client-Id", "vayu_iac")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute request: %w", err)
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close response body: %w", closeErr)
+		}
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", readErr)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
+			tflog.Debug(ctx, "ICS request received 401, attempting to re-authenticate")
+			if err := c.Authenticate(ctx); err != nil {
+				return nil, fmt.Errorf("re-authentication failed: %w", err)
+			}
+			continue
+		}
+
+		return &ICSHTTPResponse{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.Header,
+			Body:       respBody,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("ICS request failed after re-authentication")
+}
+
 // DoRequest performs an HTTP request with authentication.
 // It automatically adds the Bearer token and handles common error cases.
 func (c *Client) DoRequest(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
@@ -286,7 +412,7 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 	tflog.Debug(ctx, "Executing API request", map[string]any{
 		"method":  method,
 		"url":     url,
-		"headers": redactedRequestHeaders(req.Header),
+		"headers": fmt.Sprintf("%v", req.Header),
 	})
 
 	resp, err := c.httpClient.Do(req)
@@ -308,8 +434,8 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 			if err := c.Authenticate(ctx); err != nil {
 				return nil, fmt.Errorf("re-authentication failed: %w", err)
 			}
-		// Retry the request once after re-authentication
-		return c.DoRequestNoRetry(ctx, method, path, body)
+			// Retry the request once after re-authentication
+			return c.DoRequestNoRetry(ctx, method, path, body)
 		}
 
 		var apiErr APIError
@@ -321,6 +447,49 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 	}
 
 	return respBody, nil
+}
+
+// DoRequestWithHTTPStatus performs an authenticated request and returns the HTTP status and raw body.
+// Unlike DoRequest, non-2xx responses are not returned as errors — callers parse portal envelopes (e.g. CatalystResponse).
+func (c *Client) DoRequestWithHTTPStatus(ctx context.Context, method, path string, body interface{}) (int, []byte, error) {
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get authentication token: %w", err)
+	}
+
+	var bodyReader io.Reader
+	if body != nil {
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
+	}
+
+	url := APIURL + path
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Vayu-Client-Id", "vayu_iac")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return resp.StatusCode, respBody, nil
 }
 
 // DoRequestNoTimeout performs an HTTP request without timeout (waits indefinitely).

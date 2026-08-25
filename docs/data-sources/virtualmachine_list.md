@@ -9,6 +9,8 @@ description: |-
 
 Returns a summary row per VM in `zone_id`. Use [`vayucloud_virtualmachine`](virtualmachine.md) when you need full detail for a known `instance_id`.
 
+For HAProxy pool members, use the same `zone_id` as [`vayucloud_network_lb`](../resources/network_lb.md) and map `name` + `ip` into `pool_member` blocks on [`vayucloud_network_lb_virtualservice`](../resources/network_lb_virtualservice.md). See the [Load balancer guide](../guides/load_balancer.md).
+
 ## Example Usage
 
 ```hcl

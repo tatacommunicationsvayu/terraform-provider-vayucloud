@@ -27,8 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
+variable "resource_group_environment_id" {
+  type        = string
+  description = "Environment resource ID."
+}
+
 data "vayucloud_resource_group_environment" "example" {
-  resource_group_environment_id = "xxxx"
+  resource_group_environment_id = var.resource_group_environment_id
 }
 
 output "environment_summary" {

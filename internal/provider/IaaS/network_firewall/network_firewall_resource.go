@@ -181,6 +181,7 @@ func (r *NetworkFirewallResource) Schema(ctx context.Context, req resource.Schem
 				// Default:             stringdefault.StaticString("Bandwidth"),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
 					stringvalidator.OneOfCaseInsensitive("Bandwidth", "DataTransfer"),
@@ -364,6 +365,7 @@ func (r *NetworkFirewallResource) ModifyPlan(ctx context.Context, req resource.M
 			return
 		}
 		if err := client.ValidateThroughputAndBandwidth(
+			ctx,
 			plan.FirewallThroughput.ValueString(),
 			plan.InternetBandwidth.ValueString(),
 		); err != nil {
@@ -458,6 +460,7 @@ func (r *NetworkFirewallResource) Create(ctx context.Context, req resource.Creat
 			return
 		}
 		if err := client.ValidateThroughputAndBandwidth(
+			ctx,
 			data.FirewallThroughput.ValueString(),
 			data.InternetBandwidth.ValueString(),
 		); err != nil {
@@ -509,7 +512,7 @@ func (r *NetworkFirewallResource) Create(ctx context.Context, req resource.Creat
 		val := data.InternetPricingModel.ValueString()
 		createReq.InternetPricingModel = &val
 	}
-	
+
 	if data.AccessType.ValueString() == "Bandwidth" {
 		createReq.Bandwidth = data.InternetBandwidth.ValueString()
 		createReq.MinimumCommitment = ""
@@ -767,6 +770,7 @@ func (r *NetworkFirewallResource) Update(ctx context.Context, req resource.Updat
 	if throughputOrBandwidthChanged {
 		// Validate throughput >= bandwidth
 		if err := client.ValidateThroughputAndBandwidth(
+			ctx,
 			plan.FirewallThroughput.ValueString(),
 			plan.InternetBandwidth.ValueString(),
 		); err != nil {

@@ -27,8 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
+variable "instance_id" {
+  type        = string
+  description = "Virtual machine instance ID."
+}
+
 data "vayucloud_virtualmachine" "example" {
-  instance_id = "xxxx"
+  instance_id = var.instance_id
 }
 
 output "virtual_machine_summary" {
@@ -39,8 +44,8 @@ output "virtual_machine_summary" {
     hostname      = data.vayucloud_virtualmachine.example.hostname
     power_status  = data.vayucloud_virtualmachine.example.power_status
     pricing_model = data.vayucloud_virtualmachine.example.pricing_model
-    volumes      = data.vayucloud_virtualmachine.example.volumes
-    vcpu         = data.vayucloud_virtualmachine.example.vcpu
-    vram         = data.vayucloud_virtualmachine.example.vram
+    volumes       = data.vayucloud_virtualmachine.example.volumes
+    vcpu          = data.vayucloud_virtualmachine.example.vcpu
+    vram          = data.vayucloud_virtualmachine.example.vram
   }
 }

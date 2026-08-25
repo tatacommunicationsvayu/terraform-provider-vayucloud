@@ -27,20 +27,26 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: All environments in the business unit
-# =============================================================================
+variable "business_unit_id" {
+  type        = number
+  description = "Business unit ID whose environments to list."
+}
 
-# =============================================================================
-# Example 2: Filtered environments (adjust filter attributes as needed)
-# =============================================================================
+variable "status_filter" {
+  type        = list(string)
+  description = "Optional status filter values. Empty list skips the filter."
+  default     = []
+}
 
 data "vayucloud_resource_group_environment_list" "filtered" {
-  business_unit_id = xxxxx
+  business_unit_id = var.business_unit_id
 
-  filter {
-    name   = "status"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.status_filter) > 0 ? [var.status_filter] : []
+    content {
+      name   = "status"
+      values = filter.value
+    }
   }
 }
 

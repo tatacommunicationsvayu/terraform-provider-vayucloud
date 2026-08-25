@@ -27,12 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example: Read a network firewall by ID
-# =============================================================================
+variable "network_firewall_id" {
+  type        = string
+  description = "Network firewall resource ID."
+}
 
 data "vayucloud_network_firewall" "example" {
-  network_firewall_id = xxxxx
+  network_firewall_id = var.network_firewall_id
 }
 
 output "firewall_summary" {

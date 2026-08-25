@@ -305,35 +305,85 @@ func ListNetworkZones(c *client.Client, ctx context.Context, environmentID int64
 	return items, resp, nil
 }
 
-func ValidateNetworkZoneExists(c *client.Client, ctx context.Context, networkZoneID int64) error {
-	tflog.Debug(ctx, "Validating network zone exists", map[string]any{
-		"network_zone_id": networkZoneID,
-	})
-
+func readNetworkZone(ctx context.Context, c *client.Client, networkZoneID int64) (map[string]interface{}, error) {
 	actionStateBody := map[string]any{
 		"resourceId": fmt.Sprintf("%d", networkZoneID),
 	}
 
 	actionStateResponse, err := common.UpdateActionState(ctx, c, "zone", "read", actionStateBody)
 	if err != nil {
-		return fmt.Errorf("failed to validate network zone ID: %w", err)
+		return nil, fmt.Errorf("failed to read network zone %d: %w", networkZoneID, err)
 	}
 
 	if len(actionStateResponse.Data) == 0 {
-		return fmt.Errorf("Network Zone ID %d is not available", networkZoneID)
+		return nil, fmt.Errorf("network zone ID %d is not available", networkZoneID)
 	}
 
 	var responseMap map[string]interface{}
 	if err := json.Unmarshal(actionStateResponse.Data, &responseMap); err != nil {
-		return fmt.Errorf("Network Zone ID %d is not available", networkZoneID)
+		return nil, fmt.Errorf("network zone ID %d is not available", networkZoneID)
 	}
 
 	if len(responseMap) == 0 {
-		return fmt.Errorf("Network Zone ID %d is not available", networkZoneID)
+		return nil, fmt.Errorf("network zone ID %d is not available", networkZoneID)
+	}
+
+	return responseMap, nil
+}
+
+func networkZoneFirewallID(responseMap map[string]interface{}) (int64, bool) {
+	if v, ok := responseMap["firewall_id"].(float64); ok {
+		return int64(v), true
+	}
+	return 0, false
+}
+
+func ValidateNetworkZoneExists(c *client.Client, ctx context.Context, networkZoneID int64) error {
+	tflog.Debug(ctx, "Validating network zone exists", map[string]any{
+		"network_zone_id": networkZoneID,
+	})
+
+	if _, err := readNetworkZone(ctx, c, networkZoneID); err != nil {
+		return err
 	}
 
 	tflog.Debug(ctx, "Network Zone ID validated successfully", map[string]any{
 		"network_zone_id": networkZoneID,
+	})
+
+	return nil
+}
+
+// ValidateNetworkZoneOnFirewall ensures the zone exists and belongs to the given firewall.
+func ValidateNetworkZoneOnFirewall(c *client.Client, ctx context.Context, networkZoneID, firewallID int64) error {
+	if networkZoneID <= 0 {
+		return fmt.Errorf("zone_id must be a positive integer")
+	}
+	if firewallID <= 0 {
+		return fmt.Errorf("firewall_id must be a positive integer")
+	}
+
+	responseMap, err := readNetworkZone(ctx, c, networkZoneID)
+	if err != nil {
+		return err
+	}
+
+	zoneFirewallID, ok := networkZoneFirewallID(responseMap)
+	if !ok {
+		return fmt.Errorf("network zone ID %d has no firewall_id in platform response", networkZoneID)
+	}
+	if zoneFirewallID != firewallID {
+		return fmt.Errorf(
+			"zone_id %d belongs to firewall %d, not firewall %d",
+			networkZoneID,
+			zoneFirewallID,
+			firewallID,
+		)
+	}
+
+	tflog.Debug(ctx, "Network zone validated on firewall", map[string]any{
+		"network_zone_id": networkZoneID,
+		"firewall_id":     firewallID,
 	})
 
 	return nil

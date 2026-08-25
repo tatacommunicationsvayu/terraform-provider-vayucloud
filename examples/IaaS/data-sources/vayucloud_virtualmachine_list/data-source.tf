@@ -27,25 +27,40 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: All instances in the zone
-# =============================================================================
+variable "zone_id" {
+  type        = number
+  description = "Zone ID whose virtual machines to list."
+}
 
-# =============================================================================
-# Example 2: Instances with optional nested filters (field names supported by provider)
-# =============================================================================
+variable "power_status_filter" {
+  type        = list(string)
+  description = "Optional power_status filter values. Empty list skips the filter."
+  default     = []
+}
+
+variable "os_type_filter" {
+  type        = list(string)
+  description = "Optional os_type filter values. Empty list skips the filter."
+  default     = []
+}
 
 data "vayucloud_virtualmachine_list" "filtered" {
-  zone_id = xxxxx
+  zone_id = var.zone_id
 
-  filter {
-    name   = "power_status"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.power_status_filter) > 0 ? [var.power_status_filter] : []
+    content {
+      name   = "power_status"
+      values = filter.value
+    }
   }
 
-  filter {
-    name   = "os_type"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.os_type_filter) > 0 ? [var.os_type_filter] : []
+    content {
+      name   = "os_type"
+      values = filter.value
+    }
   }
 }
 

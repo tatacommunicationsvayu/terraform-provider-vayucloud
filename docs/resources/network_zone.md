@@ -39,7 +39,7 @@ resource "vayucloud_network_zone" "example" {
 
 * `purpose` — (String) Zone purpose. Default `IPC`. Changing forces replacement.
 * `data_plane` — (String) `Auto IPAM` or `Data Plane CIDR`. Default `Auto IPAM`. Changing forces replacement.
-* `cidr` — (String) IPv4 CIDR when `data_plane` is `Data Plane CIDR`. Changing forces replacement.
+* `cidr` — (String) IPv4 CIDR. Required when `data_plane` is `Data Plane CIDR`. For Auto IPAM, populated from the platform after create (computed). Changing a configured value forces replacement.
 * `zone_type` — (String) `overlay` or `vlan`. Default `overlay`. Changing forces replacement.
 * `no_of_v6_ips` — (Number) IPv6 address count for **dual-stack** zones. When this is set (non-null), the provider enables dual stack on create; when omitted, dual stack is off.
 * `ipv6_cidr` — (String) IPv6 CIDR for dual-stack configurations when you supply it.

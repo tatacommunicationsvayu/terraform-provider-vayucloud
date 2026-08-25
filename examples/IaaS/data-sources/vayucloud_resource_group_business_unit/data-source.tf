@@ -27,15 +27,20 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
+variable "resource_group_business_unit_id" {
+  type        = string
+  description = "Business unit resource ID."
+}
+
 data "vayucloud_resource_group_business_unit" "example" {
-  resource_group_business_unit_id = "xxxx"
+  resource_group_business_unit_id = var.resource_group_business_unit_id
 }
 
 output "business_unit_summary" {
   description = "Business unit fields from read"
   value = {
     business_unit = data.vayucloud_resource_group_business_unit.example.business_unit
-    users        = data.vayucloud_resource_group_business_unit.example.users
-    status       = data.vayucloud_resource_group_business_unit.example.status
+    users         = data.vayucloud_resource_group_business_unit.example.users
+    status        = data.vayucloud_resource_group_business_unit.example.status
   }
 }

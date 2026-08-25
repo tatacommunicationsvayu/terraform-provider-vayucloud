@@ -27,20 +27,26 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: List all zones in an environment
-# =============================================================================
+variable "environment_id" {
+  type        = number
+  description = "Environment ID whose zones to list."
+}
 
-# =============================================================================
-# Example 2: List zones filtered by zone type (or another supported filter)
-# =============================================================================
+variable "zone_type_filter" {
+  type        = list(string)
+  description = "Optional zone_type filter values. Empty list skips the filter."
+  default     = []
+}
 
 data "vayucloud_network_zone_list" "filtered" {
-  environment_id = xxxxx
+  environment_id = var.environment_id
 
-  filter {
-    name   = "zone_type"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.zone_type_filter) > 0 ? [var.zone_type_filter] : []
+    content {
+      name   = "zone_type"
+      values = filter.value
+    }
   }
 }
 

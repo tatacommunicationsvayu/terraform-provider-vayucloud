@@ -21,6 +21,8 @@ For `resource_type` `zone` and `virtualmachine`, the provider validates that `re
 
 ## Example Usage
 
+### Virtual machine
+
 ```hcl
 resource "vayucloud_network_public_ip" "vm_primary" {
   resource_type           = "virtualmachine"
@@ -30,6 +32,24 @@ resource "vayucloud_network_public_ip" "vm_primary" {
   retain_on_dissociate    = true
 }
 ```
+
+### Load balancer virtual service VIP
+
+Associate a public IP to the **private VIP** of an HAProxy virtual service. Pin `vip_ip` on the virtual service (see [`vayucloud_network_lb_virtualservice`](network_lb_virtualservice.md)) so `private_ip` stays stable across updates.
+
+```hcl
+resource "vayucloud_network_public_ip" "vs_vip" {
+  resource_type           = "loadbalancer"
+  resource_id             = tonumber(vayucloud_network_lb.lb.id)
+  private_ip              = vayucloud_network_lb_virtualservice.app_vs.vip_ip
+  public_ip_pricing_model = "daily"
+  retain_on_dissociate    = true
+
+  depends_on = [vayucloud_network_lb_virtualservice.app_vs]
+}
+```
+
+Use **`https://`** when testing HTTPS listeners. Ensure firewall rules allow the listener port (for example TCP 443).
 
 ## Argument Reference
 
@@ -53,6 +73,12 @@ In addition to the arguments above, the following attributes are exported:
 * `public_ip` — (String) Public IPv4 from action-state read for this association.
 * `audit_id` — (String) Audit ID from the last completed associate or dissociate operation tracked by the provider.
 * `status` — (String) Audit status from that operation.
+
+## See also
+
+* [Load balancer guide](../guides/load_balancer.md) — VS VIP association pattern.
+* [`vayucloud_network_lb_virtualservice`](network_lb_virtualservice.md) — Source of `vip_ip` for load balancer associations.
+* [`vayucloud_network_public_ips`](../data-sources/network_public_ips.md) — List public IP inventory.
 
 ## Import
 

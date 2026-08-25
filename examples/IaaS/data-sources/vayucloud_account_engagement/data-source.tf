@@ -27,17 +27,30 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: Retrieve all account engagements for the authenticated user
-# =============================================================================
+variable "engagement_name_filter" {
+  type        = list(string)
+  description = "Filter values for engagement_name."
+}
 
-# =============================================================================
-# Example 2: Filter by engagement name (substring match)
-# =============================================================================
+variable "engagement_type_filter" {
+  type        = list(string)
+  description = "Filter values for engagement_type."
+}
+
+variable "engagement_id_filter" {
+  type        = list(string)
+  description = "Filter values for engagement id."
+}
+
+variable "customer_name_filter" {
+  type        = list(string)
+  description = "Filter values for customer_name."
+}
+
 data "vayucloud_account_engagement" "filtered_by_name" {
   filter {
     name   = "engagement_name"
-    values = ["xxxx"]
+    values = var.engagement_name_filter
   }
 }
 
@@ -46,14 +59,10 @@ output "filtered_by_name" {
   value       = data.vayucloud_account_engagement.filtered_by_name.engagements
 }
 
-# =============================================================================
-# Example 3: Filter by engagement type
-# =============================================================================
-
 data "vayucloud_account_engagement" "filtered_by_type" {
   filter {
     name   = "engagement_type"
-    values = ["xxxx"]
+    values = var.engagement_type_filter
   }
 }
 
@@ -62,19 +71,15 @@ output "filtered_by_type" {
   value       = data.vayucloud_account_engagement.filtered_by_type.engagements
 }
 
-# =============================================================================
-# Example 4: Multiple filters (AND logic)
-# =============================================================================
-
 data "vayucloud_account_engagement" "multi_filter" {
   filter {
     name   = "id"
-    values = ["xxxx"]
+    values = var.engagement_id_filter
   }
 
   filter {
     name   = "customer_name"
-    values = ["xxxx"]
+    values = var.customer_name_filter
   }
 }
 

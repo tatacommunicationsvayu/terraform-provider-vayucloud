@@ -134,16 +134,15 @@ func UpdateNetworkFirewall(c *client.Client, ctx context.Context, firewallID int
 
 	throughputValue := stripBandwidthUnit(firewallThroughput)
 	bandwidthValue := ""
-	if bandwidth!="" {
+	if bandwidth != "" {
 		bandwidthValue = stripBandwidthUnit(bandwidth)
 	}
-	
 
 	req := &NetworkFirewallUpdateRequest{
 		SelfProvisioning:   true,
 		FirewallThroughput: throughputValue,
 	}
-	if minimumCommitment!="" {
+	if minimumCommitment != "" {
 		req.Bandwidth = bandwidthValue
 		req.MinimumCommitment = minimumCommitment
 		req.AccessType = "DataTransfer"
@@ -195,8 +194,8 @@ func UpdateNetworkFirewallAndWait(c *client.Client, ctx context.Context, firewal
 
 	requestBody := map[string]any{
 		"firewallThroughput": firewallThroughput,
-		"bandwidth":           bandwidth,
-		"minimum_commitment":  minimumCommitment,
+		"bandwidth":          bandwidth,
+		"minimum_commitment": minimumCommitment,
 	}
 
 	auditLog, err := c.WaitForAuditCompletion(ctx, updateResp.Data.Audit.AuditID, "update", "firewall", requestBody)
@@ -211,7 +210,6 @@ func UpdateNetworkFirewallAndWait(c *client.Client, ctx context.Context, firewal
 
 	return auditLog, nil
 }
-
 
 func UpdateNetworkFirewallDisplayName(c *client.Client, ctx context.Context, firewallID int64, displayName string) error {
 	tflog.Debug(ctx, "Updating firewall display name", map[string]any{

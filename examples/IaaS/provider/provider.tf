@@ -39,7 +39,7 @@ provider "vayucloud" {
 variable "vayucloud_username" {
   type        = string
   description = "VayuCloud username (email) for authentication. Can also be set via VAYU_USERNAME environment variable."
-  sensitive   = false
+  sensitive   = true
 }
 
 variable "vayucloud_password" {

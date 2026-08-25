@@ -28,37 +28,41 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: Retrieve all locations for an engagement
-# =============================================================================
+variable "engagement_id" {
+  type        = number
+  description = "Engagement ID whose locations to retrieve."
+}
 
-# =============================================================================
-# Example 2: Filter by endpoint display name (substring match)
-# =============================================================================
-data "vayucloud_account_location" "mumbai" {
-  engagement_id = xxxxx
+variable "endpoint_display_name_filter" {
+  type        = list(string)
+  description = "Filter values for endpoint_display_name."
+}
+
+variable "endpoint_id_filter" {
+  type        = list(string)
+  description = "Filter values for endpoint_id."
+}
+
+data "vayucloud_account_location" "by_display_name" {
+  engagement_id = var.engagement_id
 
   filter {
     name   = "endpoint_display_name"
-    values = ["xxxx"]
+    values = var.endpoint_display_name_filter
   }
 }
 
-output "mumbai_locations" {
+output "locations_by_display_name" {
   description = "Locations matching endpoint display name filter"
-  value       = data.vayucloud_account_location.mumbai.locations
+  value       = data.vayucloud_account_location.by_display_name.locations
 }
 
-# =============================================================================
-# Example 3: Filter by endpoint ID
-# =============================================================================
-
 data "vayucloud_account_location" "by_id" {
-  engagement_id = xxxxx
+  engagement_id = var.engagement_id
 
   filter {
     name   = "endpoint_id"
-    values = ["xxxx"]
+    values = var.endpoint_id_filter
   }
 }
 

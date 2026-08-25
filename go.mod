@@ -1,5 +1,6 @@
 module github.com/tatacommunications/terraform-provider-vayucloud
 
+// Language version. Release builds use Go 1.25.13+ (.github/workflows/release.yml) for stdlib patches.
 go 1.25.0
 
 require (
@@ -17,7 +18,7 @@ require (
 
 	// Structured logging for Terraform providers
 	// Used in: client.go, firewall.go, provider.go, resource_firewall.go
-	github.com/hashicorp/terraform-plugin-log v0.10.0
+	github.com/hashicorp/terraform-plugin-log v0.11.0
 )
 
 // Indirect dependencies - automatically managed by Go modules
@@ -28,19 +29,19 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
-	github.com/hashicorp/terraform-registry-address v0.4.0 // indirect
+	github.com/hashicorp/terraform-registry-address v0.5.0 // indirect
 	github.com/hashicorp/terraform-svchost v0.2.1 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.22 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/oklog/run v1.2.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260630182238-925bb5da69e7 // indirect
-	google.golang.org/grpc v1.82.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
+	google.golang.org/grpc v1.83.1 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )

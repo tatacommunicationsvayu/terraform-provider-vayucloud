@@ -25,23 +25,60 @@ builds:
       - linux
       - darwin
       - windows
+      - openbsd
+      - solaris
     goarch:
+      - "386"
       - amd64
       - arm64
       - arm
+      - s390x
     goarm:
       # Single GOARM only: both 6 and 7 produce Arch=arm and collide on
       # {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.zip
       - "7"
     ignore:
-      - goos: darwin
-        goarch: arm
-      - goos: windows
-        goarch: arm
-      - goos: windows
-        goarch: arm64
+      # FreeBSD: 386, amd64, arm
       - goos: freebsd
         goarch: arm64
+      - goos: freebsd
+        goarch: s390x
+
+      # Linux: 386, amd64, arm, arm64, s390x
+      # No exclusions
+
+      # Darwin: amd64, arm64
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: s390x
+
+      # Windows: 386, amd64, arm64
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: s390x
+
+      # OpenBSD: 386, amd64
+      - goos: openbsd
+        goarch: arm
+      - goos: openbsd
+        goarch: arm64
+      - goos: openbsd
+        goarch: s390x
+
+      # Solaris: amd64
+      - goos: solaris
+        goarch: "386"
+      - goos: solaris
+        goarch: arm
+      - goos: solaris
+        goarch: arm64
+      - goos: solaris
+        goarch: s390x
+
     binary: '{{ .ProjectName }}_v{{ .Version }}'
 
 archives:

@@ -1,4 +1,4 @@
-# VayuCloud network public IP association example
+﻿# VayuCloud network public IP association example
 #
 # Associates tenant public NAT with zone|virtualmachine|firewall|baremetal|loadbalancer targets.
 
@@ -27,36 +27,34 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-variable "associate_resource_type" {
+variable "resource_type" {
   type        = string
-  description = "Associate target URI segment: zone, virtualmachine, firewall, baremetal, loadbalancer."
+  description = "Target type (for example virtualmachine, firewall, loadbalancer, zone)."
 }
 
-variable "associate_resource_id" {
+variable "resource_id" {
   type        = number
-  description = "Platform ID for associate_resource_type."
+  description = "Target resource ID."
 }
 
 variable "private_ip" {
   type        = string
-  description = "PrivateIPv4 wired to NAT at associate time."
+  description = "Private IP to NAT."
 }
 
 variable "public_ip_pricing_model" {
   type        = string
-  description = "daily | monthly | reserved_* (see provider docs)."
-  default     = "monthly"
+  description = "Public IP pricing model (for example daily)."
 }
 
 variable "retain_on_dissociate" {
   type        = bool
-  description = "Whether to preserve the EIP when tearing down associations."
-  default     = false
+  description = "Retain the public IP when the association is destroyed."
 }
 
 resource "vayucloud_network_public_ip" "example" {
-  resource_type           = var.associate_resource_type
-  resource_id             = var.associate_resource_id
+  resource_type           = var.resource_type
+  resource_id             = var.resource_id
   private_ip              = var.private_ip
   public_ip_pricing_model = var.public_ip_pricing_model
   retain_on_dissociate    = var.retain_on_dissociate

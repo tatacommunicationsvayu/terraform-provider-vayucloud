@@ -1,4 +1,4 @@
-# VayuCloud Virtual Machine Image Data Source Example
+﻿# VayuCloud Virtual Machine Image Data Source Example
 #
 # Queries the VM image/template catalog for a zone.
 
@@ -27,20 +27,26 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: All images/templates for the zone (no nested filters)
-# =============================================================================
+variable "zone_id" {
+  type        = string
+  description = "Zone ID whose image catalog to query."
+}
 
-# =============================================================================
-# Example 2: Narrow with client-side filters
-# =============================================================================
+variable "name_filter" {
+  type        = list(string)
+  description = "Optional image name filter values. Empty list skips the filter."
+  default     = []
+}
 
 data "vayucloud_virtualmachine_image" "filtered" {
-  zone_id = "xxxx"
+  zone_id = var.zone_id
 
-  filter {
-    name   = "name"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.name_filter) > 0 ? [var.name_filter] : []
+    content {
+      name   = "name"
+      values = filter.value
+    }
   }
 }
 

@@ -6,6 +6,7 @@ package virtualmachine
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -53,28 +55,106 @@ type PublicIPModel struct {
 	IP                          types.String `tfsdk:"ip"`
 	AssignPublicIP              types.String `tfsdk:"assign_public_ip"`
 	RetainPublicIPOnTermination types.String `tfsdk:"retain_public_ip_on_termination"`
-	PublicIPPricingModel         types.String `tfsdk:"public_ip_pricing_model"`
+	PublicIPPricingModel        types.String `tfsdk:"public_ip_pricing_model"`
+}
+
+type CustomCredentialsModel struct {
+	Username types.String `tfsdk:"username"`
+	Password types.String `tfsdk:"password"`
+}
+
+var (
+	customCredentialsUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*$`)
+	customCredentialsPasswordUpper = regexp.MustCompile(`[A-Z]`)
+	customCredentialsPasswordLower = regexp.MustCompile(`[a-z]`)
+	customCredentialsPasswordDigit = regexp.MustCompile(`[0-9]`)
+	// Special characters for the "at least one" requirement: ! @ # $ % ^ & * ( ) _ + - = ?
+	customCredentialsPasswordSpecial = regexp.MustCompile(`[!@#$%^&*()_+\-=?]`)
+)
+
+// customCredentialsPasswordNoMonotonicSequence rejects passwords with a monotonic
+// ascending or descending character run longer than 3 (e.g. "abcd", "1234", "dcba").
+type customCredentialsPasswordNoMonotonicSequenceValidator struct{}
+
+func customCredentialsPasswordNoMonotonicSequence() validator.String {
+	return customCredentialsPasswordNoMonotonicSequenceValidator{}
+}
+
+func (v customCredentialsPasswordNoMonotonicSequenceValidator) Description(_ context.Context) string {
+	return "password must not contain a monotonic character sequence longer than 3 characters"
+}
+
+func (v customCredentialsPasswordNoMonotonicSequenceValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v customCredentialsPasswordNoMonotonicSequenceValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if hasMonotonicSequenceLongerThan(req.ConfigValue.ValueString(), 3) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Attribute Value",
+			"The password contains a monotonic sequence longer than 3 characters so it is invalid",
+		)
+	}
+}
+
+// hasMonotonicSequenceLongerThan reports whether s contains an ascending or
+// descending run of consecutive characters (code-point step ±1) longer than maxLen.
+func hasMonotonicSequenceLongerThan(s string, maxLen int) bool {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return false
+	}
+
+	seqLen := 1
+	dir := 0
+	for i := 1; i < len(runes); i++ {
+		diff := int(runes[i]) - int(runes[i-1])
+		if diff == 1 || diff == -1 {
+			if seqLen == 1 {
+				dir = diff
+				seqLen = 2
+			} else if diff == dir {
+				seqLen++
+				if seqLen > maxLen {
+					return true
+				}
+			} else {
+				dir = diff
+				seqLen = 2
+			}
+			continue
+		}
+		seqLen = 1
+		dir = 0
+	}
+	return false
 }
 
 type VirtualMachineResourceModel struct {
 	ID types.String `tfsdk:"id"`
 
-	Name                 types.String          `tfsdk:"name"`
-	VMPurpose            types.String          `tfsdk:"vm_purpose"`
-	ImageID              types.Int64           `tfsdk:"image_id"`
-	FlavorID             types.Int64           `tfsdk:"flavor_id"`
-	ZoneID               types.Int64           `tfsdk:"zone_id"`
-	IOPS                 types.Int64           `tfsdk:"iops"`
-	IsKdumpOrPageEnabled types.String          `tfsdk:"is_kdump_or_page_enabled"`
-	UsageType            types.String          `tfsdk:"usage_type"`
-	PricingModel         types.String          `tfsdk:"pricing_model"`
-	RootDiskSize         types.Int64           `tfsdk:"root_disk_size"`
-	RootDiskId           types.Int64           `tfsdk:"root_disk_id"`
-	DiskPartitions       []DiskPartitionModel  `tfsdk:"root_disk_partitions"`
+	Name                 types.String         `tfsdk:"name"`
+	VMPurpose            types.String         `tfsdk:"vm_purpose"`
+	ImageID              types.Int64          `tfsdk:"image_id"`
+	FlavorID             types.Int64          `tfsdk:"flavor_id"`
+	ZoneID               types.Int64          `tfsdk:"zone_id"`
+	IOPS                 types.Int64          `tfsdk:"iops"`
+	IsKdumpOrPageEnabled types.String         `tfsdk:"is_kdump_or_page_enabled"`
+	UsageType            types.String         `tfsdk:"usage_type"`
+	PricingModel         types.String         `tfsdk:"pricing_model"`
+	RootDiskSize         types.Int64          `tfsdk:"root_disk_size"`
+	RootDiskId           types.Int64          `tfsdk:"root_disk_id"`
+	DiskPartitions       []DiskPartitionModel `tfsdk:"root_disk_partitions"`
 	// Pointer so Terraform null / omitted optional block decodes correctly (non-pointer struct cannot represent null).
-	PublicIP             *PublicIPModel        `tfsdk:"public_ip"`
-	AdditionalDisk       []AdditionalDiskModel `tfsdk:"additional_disk"`
-	PowerStatus          types.String          `tfsdk:"power_status"`
+	PublicIP           *PublicIPModel           `tfsdk:"public_ip"`
+	CustomCredentials  *CustomCredentialsModel  `tfsdk:"custom_credentials"`
+	AdditionalDisk     []AdditionalDiskModel    `tfsdk:"additional_disk"`
+	PowerStatus        types.String             `tfsdk:"power_status"`
+	IP                 types.String             `tfsdk:"ip"`
 
 	AuditID types.String `tfsdk:"audit_id"`
 	Status  types.String `tfsdk:"status"`
@@ -149,7 +229,7 @@ func (r *VirtualMachineResource) Schema(ctx context.Context, req resource.Schema
 			"usage_type": schema.StringAttribute{
 				Description: "The usage type (e.g., 'ppu', 'reserved').",
 				Optional:    true,
-				Computed: 	 true,
+				Computed:    true,
 				Default:     stringdefault.StaticString("ppu"),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -288,8 +368,46 @@ func (r *VirtualMachineResource) Schema(ctx context.Context, req resource.Schema
 					},
 				},
 			},
+			"custom_credentials": schema.SingleNestedAttribute{
+				Description: "Optional custom OS login credentials sent at VM create as customCredentials.",
+				Optional:    true,
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+				Attributes: map[string]schema.Attribute{
+					"username": schema.StringAttribute{
+						Description: "Login username. At least 4 characters; must start with a letter; alphanumeric only; cannot be root or administrator.",
+						Required:    true,
+						Validators: []validator.String{
+							stringvalidator.LengthAtLeast(4),
+							stringvalidator.RegexMatches(customCredentialsUsernameRegex, "Username must start with a letter (a-z or A-Z) and contain only alphanumeric characters"),
+							stringvalidator.NoneOfCaseInsensitive("root", "administrator"),
+						},
+					},
+					"password": schema.StringAttribute{
+						Description: "Login password (14–30 chars; must include uppercase, lowercase, digit, and a special character from !@#$%^&*()_+-=?; must not contain a monotonic sequence longer than 3 characters).",
+						Required:    true,
+						Sensitive:   true,
+						Validators: []validator.String{
+							stringvalidator.LengthBetween(14, 30),
+							stringvalidator.RegexMatches(customCredentialsPasswordUpper, "Password must contain at least one uppercase letter (A-Z)"),
+							stringvalidator.RegexMatches(customCredentialsPasswordLower, "Password must contain at least one lowercase letter (a-z)"),
+							stringvalidator.RegexMatches(customCredentialsPasswordDigit, "Password must contain at least one digit (0-9)"),
+							stringvalidator.RegexMatches(customCredentialsPasswordSpecial, "Password must contain at least one special character: ! @ # $ % ^ & * ( ) _ + - = ?"),
+							customCredentialsPasswordNoMonotonicSequence(),
+						},
+					},
+				},
+			},
 			"power_status": schema.StringAttribute{
 				Description: "The power status of the virtual machine.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"ip": schema.StringAttribute{
+				Description: "The IP address of the virtual machine.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -389,6 +507,13 @@ func vmCreateRequestFromPlanModel(data *VirtualMachineResourceModel) *VirtualMac
 		createReq.AdditionalDisk = disks
 	}
 
+	if data.CustomCredentials != nil {
+		createReq.CustomCredentials = &CustomCredentials{
+			Username: data.CustomCredentials.Username.ValueString(),
+			Password: data.CustomCredentials.Password.ValueString(),
+		}
+	}
+
 	return createReq
 }
 
@@ -407,9 +532,20 @@ func (r *VirtualMachineResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	// Pre-create validate API applies only to new instances (id unknown until apply).
+	// Pre-create validate API applies only to brand-new instances (no id in plan or state).
 	if !plan.ID.IsUnknown() {
 		return
+	}
+	if !req.State.Raw.IsNull() {
+		var state VirtualMachineResourceModel
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		// Replacement: old instance still exists until apply destroys it; skip hostname checks.
+		if !state.ID.IsNull() && !state.ID.IsUnknown() {
+			return
+		}
 	}
 
 	if plan.Name.IsUnknown() || plan.VMPurpose.IsUnknown() || plan.ImageID.IsUnknown() || plan.FlavorID.IsUnknown() ||
@@ -417,14 +553,14 @@ func (r *VirtualMachineResource) ModifyPlan(ctx context.Context, req resource.Mo
 		return
 	}
 
-	createReq := vmCreateRequestFromPlanModel(&plan)
-	if err := PreCreateValidateInstance(r.client, ctx, createReq); err != nil {
-		resp.Diagnostics.AddError(
-			"Virtual Machine Pre-Create Validation Failed",
-			err.Error(),
-		)
-		return
-	}
+	// createReq := vmCreateRequestFromPlanModel(&plan)
+	// if err := PreCreateValidateInstance(r.client, ctx, createReq); err != nil {
+	// 	resp.Diagnostics.AddError(
+	// 		"Virtual Machine Pre-Create Validation Failed",
+	// 		err.Error(),
+	// 	)
+	// 	return
+	// }
 }
 
 func (r *VirtualMachineResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -444,64 +580,7 @@ func (r *VirtualMachineResource) Create(ctx context.Context, req resource.Create
 	})
 
 	// Build the create request directly from the model
-	createReq := &VirtualMachineCreateRequest{
-		Name:                 data.Name.ValueString(),
-		VMPurpose:            data.VMPurpose.ValueString(),
-		ImageID:              data.ImageID.ValueInt64(),
-		FlavorID:             data.FlavorID.ValueInt64(),
-		ZoneID:               data.ZoneID.ValueInt64(),
-		IOPS:                 data.IOPS.ValueInt64(),
-		IsKdumpOrPageEnabled: data.IsKdumpOrPageEnabled.ValueString(),
-	}
-
-	if !data.UsageType.IsNull() && !data.UsageType.IsUnknown() {
-		createReq.UsageType = data.UsageType.ValueString()
-	}
-	if !data.PricingModel.IsNull() && !data.PricingModel.IsUnknown() {
-		createReq.PricingModel = data.PricingModel.ValueString()
-	}
-	if !data.RootDiskSize.IsNull() && !data.RootDiskSize.IsUnknown() {
-		createReq.RootDiskSize = data.RootDiskSize.ValueInt64()
-	}
-	if data.PublicIP != nil {
-		if !data.PublicIP.AssignPublicIP.IsNull() && !data.PublicIP.AssignPublicIP.IsUnknown() && strings.ToLower(data.PublicIP.AssignPublicIP.ValueString()) == "yes" {
-			createReq.AssignPublicIp = "yes"
-			if !data.PublicIP.RetainPublicIPOnTermination.IsNull() && !data.PublicIP.RetainPublicIPOnTermination.IsUnknown() && strings.ToLower(data.PublicIP.RetainPublicIPOnTermination.ValueString()) == "yes" {
-				createReq.RetainPublicIPOnTermination = "yes"
-			} else {
-				createReq.RetainPublicIPOnTermination = "no"
-			}
-			if !data.PublicIP.PublicIPPricingModel.IsNull() && !data.PublicIP.PublicIPPricingModel.IsUnknown() {
-				createReq.PublicIpPricingModel = data.PublicIP.PublicIPPricingModel.ValueString()
-			} else {
-				createReq.PublicIpPricingModel = data.PricingModel.ValueString()
-			}
-		}
-	}
-
-	// Map disk partitions
-	if len(data.DiskPartitions) > 0 {
-		partitions := make([]DiskPartition, len(data.DiskPartitions))
-		for i, dp := range data.DiskPartitions {
-			partitions[i] = DiskPartition{
-				Partition: dp.Partition.ValueString(),
-				Size:      dp.Size.ValueInt64(),
-			}
-		}
-		createReq.DiskPartitions = partitions
-	}
-
-	// Map additional disks
-	if len(data.AdditionalDisk) > 0 {
-		disks := make([]AdditionalDisk, len(data.AdditionalDisk))
-		for i, ad := range data.AdditionalDisk {
-			disks[i] = AdditionalDisk{
-				Size: ad.Size.ValueInt64(),
-				IOPS: ad.IOPS.ValueInt64(),
-			}
-		}
-		createReq.AdditionalDisk = disks
-	}
+	createReq := vmCreateRequestFromPlanModel(&data)
 
 	// Run pre-create validation
 	if err := PreCreateValidateInstance(r.client, ctx, createReq); err != nil {
@@ -532,55 +611,29 @@ func (r *VirtualMachineResource) Create(ctx context.Context, req resource.Create
 		)
 		return
 	}
-	data.AuditID = types.StringValue(auditLog.AuditID)
+	auditID := auditLog.AuditID
+	data.AuditID = types.StringValue(auditID)
 	data.Status = types.StringValue(auditLog.Status)
-	data.PowerStatus = types.StringValue("active")
 
-	if data.RootDiskId.IsUnknown() || data.RootDiskId.IsNull() {
-		data.RootDiskId = types.Int64Null()
+	vmResp, err := GetVirtualMachineDetail(r.client, ctx, data.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Virtual Machine After Create",
+			fmt.Sprintf("Virtual machine was created but could not read details for %s: %s", data.ID.ValueString(), err.Error()),
+		)
+		return
 	}
-	if data.RootDiskSize.IsUnknown() || data.RootDiskSize.IsNull() {
-		data.RootDiskSize = types.Int64Null()
+	applyVirtualMachineDetail(&data, vmResp.Data, true)
+
+	if strings.TrimSpace(vmResp.Data.IP) != "" {
+		data.IP = types.StringValue(vmResp.Data.IP)
+	} else {
+		data.IP = types.StringUnknown()
 	}
-	// If public_ip was omitted in config, keep PublicIP nil so state stays null for the whole block.
-	// Do not allocate an empty PublicIPModel{} here — that would turn null into an object with all-null
-	// attributes and trigger "was null, but now ..." apply errors.
-	if data.PublicIP != nil {
-		if data.PublicIP.IP.IsUnknown() || data.PublicIP.IP.IsNull() {
-			data.PublicIP.IP = types.StringNull()
-		}
-		if data.PublicIP.AssignPublicIP.IsUnknown() || data.PublicIP.AssignPublicIP.IsNull() {
-			data.PublicIP.AssignPublicIP = types.StringNull()
-		}
-		if data.PublicIP.RetainPublicIPOnTermination.IsUnknown() || data.PublicIP.RetainPublicIPOnTermination.IsNull() {
-			data.PublicIP.RetainPublicIPOnTermination = types.StringNull()
-		}
-		if data.PublicIP.PublicIPPricingModel.IsUnknown() || data.PublicIP.PublicIPPricingModel.IsNull() {
-			data.PublicIP.PublicIPPricingModel = types.StringNull()
-		}
-	}
-	if data.UsageType.IsUnknown() || data.UsageType.IsNull() {
-		data.UsageType = types.StringNull()
-	}
-	if data.PricingModel.IsUnknown() || data.PricingModel.IsNull() {
-		data.PricingModel = types.StringNull()
-	}
-	if data.AdditionalDisk != nil {
-		for i := range data.AdditionalDisk {
-			if data.AdditionalDisk[i].ID.IsUnknown() || data.AdditionalDisk[i].ID.IsNull() {
-				data.AdditionalDisk[i].ID = types.Int64Null()
-			}
-			if data.AdditionalDisk[i].Name.IsUnknown() || data.AdditionalDisk[i].Name.IsNull() {
-				data.AdditionalDisk[i].Name = types.StringNull()
-			}
-			if data.AdditionalDisk[i].DiskType.IsUnknown() || data.AdditionalDisk[i].DiskType.IsNull() {
-				data.AdditionalDisk[i].DiskType = types.StringNull()
-			}
-			if data.AdditionalDisk[i].CreatedDate.IsUnknown() || data.AdditionalDisk[i].CreatedDate.IsNull() {
-				data.AdditionalDisk[i].CreatedDate = types.StringNull()
-			}
-		}
-	}
+
+	// Detail API does not return audit metadata; keep values from the create audit.
+	data.AuditID = types.StringValue(auditID)
+	data.Status = types.StringValue(auditLog.Status)
 
 	tflog.Info(ctx, "Virtual machine created successfully", map[string]any{
 		"id":       data.ID.ValueString(),
@@ -591,45 +644,30 @@ func (r *VirtualMachineResource) Create(ctx context.Context, req resource.Create
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *VirtualMachineResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data VirtualMachineResourceModel
+// applyVirtualMachineDetail maps GET instance detail into computed Terraform state fields.
+// Config-only attributes (vm_purpose, usage_type, iops, disk partitions, etc.) are left unchanged.
+// When preservePlannedAdditionalDisks is true (create), planned additional_disk entries are kept
+// if the detail API has not listed them yet — avoids inconsistent result after apply.
+func applyVirtualMachineDetail(data *VirtualMachineResourceModel, vm VirtualMachineDetail, preservePlannedAdditionalDisks bool) {
+	plannedAdditional := append([]AdditionalDiskModel(nil), data.AdditionalDisk...)
 
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	instanceID := data.ID.ValueString()
-
-	tflog.Debug(ctx, "Reading virtual machine", map[string]any{
-		"id":       instanceID,
-		"audit_id": data.AuditID.ValueString(),
-	})
-
-	vmResp, err := GetVirtualMachineDetail(r.client, ctx, instanceID)
-	if err != nil {
-		resp.Diagnostics.AddWarning(
-			"Virtual Machine Not Found",
-			fmt.Sprintf("Could not read virtual machine %s, it may have been deleted: %s", instanceID, err.Error()),
-		)
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
-	vm := vmResp.Data
-
-	// Update fields available from the API response
 	data.Name = types.StringValue(vm.Name)
 	data.ImageID = types.Int64Value(vm.ImageID)
 	data.FlavorID = types.Int64Value(vm.FlavorID)
 	data.ZoneID = types.Int64Value(vm.ZoneID)
+	data.IOPS = types.Int64Value(vm.Volumes[0].IOPS)
+	data.VMPurpose = types.StringValue(vm.VMPurpose)
+	data.UsageType = types.StringValue(vm.UsageType)
+	data.IsKdumpOrPageEnabled = types.StringValue(vm.IsKdumpOrPageEnabled)
 	if vm.PricingModel != "" {
 		data.PricingModel = types.StringValue(vm.PricingModel)
 	}
-	// data.PowerStatus = types.StringValue(vm.PowerStatus)
-	// API may return root disk size as "rootDisk" or not at all; derive from root volume if zero
+	if vm.PowerStatus != "" {
+		data.PowerStatus = types.StringValue(vm.PowerStatus)
+	}
+
 	rootSize := vm.RootDiskSize
-	data.AdditionalDisk = nil // replace from API; do not append to existing state
+	data.AdditionalDisk = nil
 	for _, disk := range vm.Volumes {
 		if strings.ToLower(disk.DiskType) == "root" {
 			data.RootDiskId = types.Int64Value(int64(disk.ID))
@@ -658,17 +696,69 @@ func (r *VirtualMachineResource) Read(ctx context.Context, req resource.ReadRequ
 		if data.PublicIP.RetainPublicIPOnTermination.IsUnknown() || data.PublicIP.RetainPublicIPOnTermination.IsNull() {
 			data.PublicIP.RetainPublicIPOnTermination = types.StringValue("no")
 		}
-		if !data.PublicIP.PublicIPPricingModel.IsNull() && !data.PublicIP.PublicIPPricingModel.IsUnknown() {
-			data.PublicIP.PublicIPPricingModel = types.StringValue(data.PricingModel.ValueString())
+	}
+
+	if preservePlannedAdditionalDisks && len(plannedAdditional) > 0 {
+		switch {
+		case len(data.AdditionalDisk) == 0:
+			data.AdditionalDisk = plannedAdditional
+		case len(data.AdditionalDisk) < len(plannedAdditional):
+			merged := make([]AdditionalDiskModel, len(plannedAdditional))
+			copy(merged, data.AdditionalDisk)
+			for i := len(data.AdditionalDisk); i < len(plannedAdditional); i++ {
+				merged[i] = plannedAdditional[i]
+			}
+			data.AdditionalDisk = merged
 		}
+	}
+}
+
+func (r *VirtualMachineResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data VirtualMachineResourceModel
+
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	instanceID := data.ID.ValueString()
+
+	tflog.Debug(ctx, "Reading virtual machine", map[string]any{
+		"id":       instanceID,
+		"audit_id": data.AuditID.ValueString(),
+	})
+
+	vmResp, err := GetVirtualMachineDetail(r.client, ctx, instanceID)
+	if err != nil {
+		resp.Diagnostics.AddWarning(
+			"Virtual Machine Not Found",
+			fmt.Sprintf("Could not read virtual machine %s, it may have been deleted: %s", instanceID, err.Error()),
+		)
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	applyVirtualMachineDetail(&data, vmResp.Data, false)
+	if strings.TrimSpace(vmResp.Data.IP) != "" {
+		data.IP = types.StringValue(vmResp.Data.IP)
+	} else {
+		data.IP = types.StringUnknown()
+	}
+	if data.PublicIP != nil {
+		if data.PublicIP.PublicIPPricingModel.IsNull() || data.PublicIP.PublicIPPricingModel.IsUnknown() {
+			if !data.PricingModel.IsNull() && !data.PricingModel.IsUnknown() {
+				data.PublicIP.PublicIPPricingModel = types.StringValue(data.PricingModel.ValueString())
+			}
+		}
+		// else: leave data.PublicIP.PublicIPPricingModel as already loaded from state
 	}
 
 	tflog.Info(ctx, "Virtual machine read successfully", map[string]any{
 		"id":             instanceID,
-		"name":           vm.Name,
-		"power_status":   vm.PowerStatus,
-		"zone_id":        vm.ZoneID,
-		"root_disk_size": vm.RootDiskSize,
+		"name":           vmResp.Data.Name,
+		"power_status":   vmResp.Data.PowerStatus,
+		"zone_id":        vmResp.Data.ZoneID,
+		"root_disk_size": vmResp.Data.RootDiskSize,
 	})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

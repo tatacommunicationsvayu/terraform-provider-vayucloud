@@ -11,7 +11,9 @@ Provides a virtual machine. The platform returns an audit identifier for create;
 
 Prerequisites: valid `zone_id`, `image_id`, and `flavor_id` (typically from `vayucloud_virtualmachine_image` and `vayucloud_virtualmachine_flavor` data sources).
 
-For **new** resources, the provider calls the platform **pre-create validate** API during `terraform plan` when the instance `id` is not yet known, so invalid combinations fail early.
+For **new** resources (no prior Terraform state), the provider calls the platform **pre-create validate** API during `terraform plan`.
+
+Pre-create is **skipped** when Terraform already tracks the resource in state (updates) or when the hostname-already-exists response indicates a replacement leg (imported or out-of-band VM). True creates still validate at plan time; create also validates at apply.
 
 ## In-place updates
 
@@ -119,6 +121,28 @@ resource "vayucloud_virtualmachine" "with_disks" {
 }
 ```
 
+### Custom OS credentials (optional)
+
+Sent only at create. Use a Terraform variable for the password; do not hard-code secrets.
+
+```hcl
+resource "vayucloud_virtualmachine" "with_credentials" {
+  name       = "app-vm"
+  vm_purpose = "WEB"
+  image_id   = data.vayucloud_virtualmachine_image.os.images[0].id
+  flavor_id  = data.vayucloud_virtualmachine_flavor.size.flavors[0].id
+  zone_id    = {{zone_id}}
+  iops       = 1
+
+  is_kdump_or_page_enabled = "No"
+
+  custom_credentials = {
+    username = var.vm_os_username
+    password = var.vm_os_password
+  }
+}
+```
+
 ## Argument Reference
 
 ### Required
@@ -149,10 +173,14 @@ resource "vayucloud_virtualmachine" "with_disks" {
   * `size` — (Number) Disk size in GB. Required in configuration.
   * `iops` — (Number) IOPS. Required in configuration.
   * `id`, `name`, `disk_type`, `created_date` — (Number / String) Computed after apply when returned by the platform.
+* `custom_credentials` — (Object, optional) Custom OS login sent at create. Changing does not resize the VM in place (the platform does not return these values on read).
+  * `username` — (String) Login username. At least 4 characters; must start with a letter; alphanumeric only; cannot be `root` or `administrator`.
+  * `password` — (String, sensitive) Login password. Length 14–30; must include uppercase, lowercase, digit, and a special character from `!@#$%^&*()_+-=?`; must not contain a monotonic sequence longer than 3 characters.
 
 ## Attributes Reference
 
 * `id` — (String) Virtual machine instance (resource) identifier.
+* `ip` — (String) Private IP address from the platform.
 * `power_status` — (String) Power status from the platform.
 * `audit_id` — (String) Audit identifier for the last provisioning operation.
 * `status` — (String) Audit completion status (for example success or failure).

@@ -64,7 +64,7 @@ type NetworkZoneResourceModel struct {
 	// DataPlane is the data plane type ("Auto IPAM" or "Data Plane CIDR")
 	DataPlane types.String `tfsdk:"data_plane"`
 
-	// CIDR is the CIDR value (only used with Data Plane CIDR)
+	// CIDR is the IPv4 CIDR (required for Data Plane CIDR; computed after create for Auto IPAM)
 	CIDR types.String `tfsdk:"cidr"`
 
 	// ZoneType is the zone type ("overlay" or "vlan")
@@ -164,11 +164,13 @@ func (r *NetworkZoneResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"cidr": schema.StringAttribute{
-				Description:         "The CIDR value (e.g., '10.0.0.0/24'). Required when data_plane is 'Data Plane CIDR'.",
-				MarkdownDescription: "The CIDR value (e.g., `10.0.0.0/24`). Required when `data_plane` is `Data Plane CIDR`.",
+				Description:         "The IPv4 CIDR for the zone. Required when data_plane is 'Data Plane CIDR'; populated from the platform after create for Auto IPAM.",
+				MarkdownDescription: "The IPv4 CIDR for the zone. Required when `data_plane` is `Data Plane CIDR`; populated from the platform after create for Auto IPAM.",
 				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"zone_type": schema.StringAttribute{
@@ -383,10 +385,20 @@ func (r *NetworkZoneResource) Create(ctx context.Context, req resource.CreateReq
 		data.NetworkZoneId = types.Int64Null()
 	}
 
+	// Read the zone so platform-assigned CIDR (Auto IPAM) and related fields are in state.
+	if err := r.refreshZoneState(ctx, &data); err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Network Zone After Create",
+			"Network zone was created but could not read CIDR and zone details: "+err.Error(),
+		)
+		return
+	}
+
 	tflog.Info(ctx, "Network Zone created successfully", map[string]any{
 		"id":       data.ID.ValueString(),
 		"audit_id": data.AuditID.ValueString(),
 		"status":   data.Status.ValueString(),
+		"cidr":     data.CIDR.ValueString(),
 	})
 
 	// Save data into Terraform state
@@ -408,13 +420,7 @@ func (r *NetworkZoneResource) Read(ctx context.Context, req resource.ReadRequest
 		"audit_id": data.AuditID.ValueString(),
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId": data.ID.ValueString(),
-	}
-
-	// Call action-state API to get the latest firewall data
-	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "zone", "read", actionStateBody)
-	if err != nil {
+	if err := r.refreshZoneState(ctx, &data); err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Network Zone",
 			"Could not read network zone: "+err.Error(),
@@ -422,30 +428,43 @@ func (r *NetworkZoneResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	// Check if response data is empty
-	if len(actionStateResponse.Data) == 0 {
-		resp.Diagnostics.AddWarning(
-			"Empty Response Data",
-			"Could not read network zone: response data is empty, keeping existing state",
-		)
-		// Keep existing state and return
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
+	tflog.Info(ctx, "Network zone read successfully", map[string]any{
+		"id":     data.ID.ValueString(),
+		"status": data.Status.ValueString(),
+		"cidr":   data.CIDR.ValueString(),
+	})
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// refreshZoneState reads the zone via action-state and updates computed fields (cidr, etc.).
+func (r *NetworkZoneResource) refreshZoneState(ctx context.Context, data *NetworkZoneResourceModel) error {
+	actionStateBody := map[string]any{
+		"resourceId": data.ID.ValueString(),
 	}
 
-	// Unmarshal the JSON response data into a map
-	// The API returns standard JSON types, not Terraform framework types
+	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "zone", "read", actionStateBody)
+	if err != nil {
+		return err
+	}
+
+	if len(actionStateResponse.Data) == 0 {
+		tflog.Warn(ctx, "Empty zone action-state response; keeping existing state values", map[string]any{
+			"id": data.ID.ValueString(),
+		})
+		return nil
+	}
+
 	var responseMap map[string]interface{}
 	if err := json.Unmarshal(actionStateResponse.Data, &responseMap); err != nil {
-		resp.Diagnostics.AddError(
-			"Error Unmarshalling Response Data",
-			fmt.Sprintf("Could not unmarshal response data: %s. Response: %s", err.Error(), string(actionStateResponse.Data)),
-		)
-		return
+		return fmt.Errorf("could not unmarshal response data: %w; response: %s", err, string(actionStateResponse.Data))
 	}
-	tflog.Debug(ctx, "Response Map", map[string]any{
+
+	tflog.Debug(ctx, "Zone action-state response", map[string]any{
 		"response_map": responseMap,
 	})
+
 	if v, ok := responseMap["name"].(string); ok {
 		data.Name = types.StringValue(v)
 	}
@@ -478,6 +497,9 @@ func (r *NetworkZoneResource) Read(ctx context.Context, req resource.ReadRequest
 	if v, ok := responseMap["zone_ci_master_id"].(float64); ok {
 		data.NetworkZoneId = types.Int64Value(int64(v))
 	}
+	if v, ok := responseMap["cidr"].(string); ok && v != "" {
+		data.CIDR = types.StringValue(v)
+	}
 
 	// Ensure computed fields are always known (handles import where state is empty)
 	if data.Purpose.IsNull() || data.Purpose.IsUnknown() {
@@ -490,13 +512,7 @@ func (r *NetworkZoneResource) Read(ctx context.Context, req resource.ReadRequest
 		data.ZoneType = types.StringValue("overlay")
 	}
 
-	tflog.Info(ctx, "Network zone read successfully", map[string]any{
-		"id":     data.ID.ValueString(),
-		"status": data.Status.ValueString(),
-	})
-
-	// Save updated data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	return nil
 }
 
 // Update updates the resource.

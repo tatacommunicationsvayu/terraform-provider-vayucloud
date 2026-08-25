@@ -27,12 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example: Audit log detail by audit ID
-# =============================================================================
+variable "audit_id" {
+  type        = string
+  description = "Audit log ID to read."
+}
 
 data "vayucloud_auditlog_details" "example" {
-  audit_id = "xxxx"
+  audit_id = var.audit_id
 }
 
 output "audit_status" {

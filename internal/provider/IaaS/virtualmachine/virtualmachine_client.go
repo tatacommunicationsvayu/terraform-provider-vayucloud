@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
@@ -46,6 +47,13 @@ type VirtualMachineCreateRequest struct {
 	PublicIpPricingModel        string           `json:"publicIpPricingModel,omitempty"`
 	DiskPartitions              []DiskPartition  `json:"diskPartitions,omitempty"`
 	AdditionalDisk              []AdditionalDisk `json:"additionalDisk,omitempty"`
+	CustomCredentials           *CustomCredentials `json:"customCredentials,omitempty"`
+}
+
+// CustomCredentials is optional OS login credentials included on VM create/launch.
+type CustomCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // PreCreateValidateResponse represents the API response for pre-create validation.
@@ -388,6 +396,27 @@ func CreateVirtualMachine(c *client.Client, ctx context.Context, req *VirtualMac
 	return &result, nil
 }
 
+// createInstanceActionStateBody builds the action-state request body for instance create
+// audit completion. Steps are derived from create request flags (e.g. public IP association).
+func createInstanceActionStateBody(req *VirtualMachineCreateRequest) map[string]any {
+	if req == nil {
+		return nil
+	}
+
+	var steps []string
+	if strings.EqualFold(strings.TrimSpace(req.AssignPublicIp), "yes") {
+		steps = append(steps, "public-ip-association")
+	}
+
+	if len(steps) == 0 {
+		return nil
+	}
+
+	return map[string]any{
+		"steps": steps,
+	}
+}
+
 // CreateVirtualMachineAndWait creates a virtual machine and waits for the operation to complete.
 func CreateVirtualMachineAndWait(c *client.Client, ctx context.Context, req *VirtualMachineCreateRequest) (*client.AuditLogResponse, error) {
 	tflog.Info(ctx, "Creating virtual machine and waiting for completion", map[string]any{"vm_name": req.Name})
@@ -397,14 +426,15 @@ func CreateVirtualMachineAndWait(c *client.Client, ctx context.Context, req *Vir
 		return nil, err
 	}
 
-	var requestBody any = nil
-	auditLog, err := c.WaitForAuditCompletion(ctx, createResp.Data.Audit.AuditID, "create", "instance", requestBody)
+	auditID := createResp.Data.Audit.AuditID
+	requestBody := createInstanceActionStateBody(req)
+	auditLog, err := c.WaitForAuditCompletion(ctx, auditID, "create", "instance", requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("virtual machine creation failed: %w", err)
 	}
 
 	tflog.Info(ctx, "Virtual machine created successfully", map[string]any{
-		"audit_id": createResp.Data.Audit.AuditID, "vm_name": req.Name,
+		"audit_id": auditID, "vm_name": req.Name,
 	})
 
 	return auditLog, nil
@@ -623,6 +653,7 @@ type VirtualMachineVolume struct {
 // VirtualMachineDetail represents the full virtual machine detail returned by the API.
 type VirtualMachineDetail struct {
 	ID                   int64                  `json:"id"`
+	VMPurpose            string                 `json:"vmPurpose"`
 	Name                 string                 `json:"name"`
 	Hostname             string                 `json:"hostname"`
 	ZoneID               int64                  `json:"zoneId"`
@@ -631,6 +662,8 @@ type VirtualMachineDetail struct {
 	PowerStatus          string                 `json:"powerStatus"`
 	FlavorID             int64                  `json:"flavorId"`
 	ImageID              int64                  `json:"imageId"`
+	UsageType            string                 `json:"usageType"`
+	IsKdumpOrPageEnabled string                 `json:"isKdumpOrPageEnabled"`
 	OsType               string                 `json:"osType"`
 	OsVersion            string                 `json:"osVersion"`
 	OsModel              string                 `json:"osModel"`

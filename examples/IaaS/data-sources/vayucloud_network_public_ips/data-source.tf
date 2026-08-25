@@ -1,4 +1,4 @@
-# VayuCloud Network Public IPs Data Source Example
+﻿# VayuCloud Network Public IPs Data Source Example
 #
 # Lists public IP inventory for exactly one scope: firewall or engagement.
 
@@ -27,28 +27,45 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: By firewall
-# =============================================================================
-
-# =============================================================================
-# Example 2: By engagement (uncomment exactly one scope)
-# =============================================================================
-
-data "vayucloud_network_public_ips" "by_firewall" {
-  firewall_id = xxxxx
+variable "firewall_id" {
+  type        = number
+  description = "Firewall ID scope. Set this or engagement_id, not both."
+  default     = null
+  nullable    = true
 }
 
-# data "vayucloud_network_public_ips" "by_engagement" {
-#   engagement_id = xxxxx
-# }
+variable "engagement_id" {
+  type        = number
+  description = "Engagement ID scope. Set this or firewall_id, not both."
+  default     = null
+  nullable    = true
+}
+
+variable "purpose_filter" {
+  type        = list(string)
+  description = "Optional purpose filter values. Empty list skips the filter."
+  default     = []
+}
+
+data "vayucloud_network_public_ips" "example" {
+  firewall_id   = var.firewall_id
+  engagement_id = var.engagement_id
+
+  dynamic "filter" {
+    for_each = length(var.purpose_filter) > 0 ? [var.purpose_filter] : []
+    content {
+      name   = "purpose"
+      values = filter.value
+    }
+  }
+}
 
 output "public_ip_segments" {
   description = "publicIpSegment values from the API"
-  value       = [for row in data.vayucloud_network_public_ips.by_firewall.public_ips : row.public_ip_segment]
+  value       = data.vayucloud_network_public_ips.example.public_ips
 }
 
 output "row_count" {
   description = "Number of public IP rows returned"
-  value       = length(data.vayucloud_network_public_ips.by_firewall.public_ips)
+  value       = length(data.vayucloud_network_public_ips.example.public_ips)
 }

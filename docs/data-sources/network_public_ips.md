@@ -19,6 +19,20 @@ data "vayucloud_network_public_ips" "by_firewall" {
 data "vayucloud_network_public_ips" "by_engagement" {
   engagement_id = {{engagement_id}}
 }
+
+data "vayucloud_network_public_ips" "free_ips" {
+  firewall_id = {{firewall_id}}
+
+  filter {
+    name   = "purpose"
+    values = ["Free IP, Not associated to any"]
+  }
+
+  filter {
+    name   = "is_used"
+    values = ["false"]
+  }
+}
 ```
 
 ## Argument Reference
@@ -29,6 +43,10 @@ You must specify **one** of:
 
 * `firewall_id` — (Number) Query parameter `firewall-ci`. Mutually exclusive with `engagement_id`.
 * `engagement_id` — (Number) Query parameter `engagement`. Mutually exclusive with `firewall_id`.
+
+### Optional
+
+* `filter` — (Block List) Client-side filters applied after the API response. Multiple `filter` blocks are combined with **AND** logic; multiple `values` within a block use **OR** logic (case-insensitive exact match). Valid `name` values on each `public_ips` entry: `public_ip_segment`, `is_used`, `purpose`, `location`, `description`. For `is_used`, use `"true"` or `"false"`.
 
 ## Attributes Reference
 

@@ -27,12 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example: Read a network zone by ID
-# =============================================================================
+variable "network_zone_id" {
+  type        = number
+  description = "Network zone resource ID."
+}
 
 data "vayucloud_network_zone" "example" {
-  network_zone_id = xxxxx
+  network_zone_id = var.network_zone_id
 }
 
 output "network_zone_summary" {

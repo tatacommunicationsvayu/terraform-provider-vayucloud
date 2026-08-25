@@ -27,21 +27,40 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example: Zone catalog with nested filters (names per API-supported fields)
-# =============================================================================
+variable "zone_id" {
+  type        = string
+  description = "Zone ID whose flavor catalog to query."
+}
+
+variable "name_filter" {
+  type        = list(string)
+  description = "Optional flavor name filter values. Empty list skips the filter."
+  default     = []
+}
+
+variable "os_model_filter" {
+  type        = list(string)
+  description = "Optional os_model filter values. Empty list skips the filter."
+  default     = []
+}
 
 data "vayucloud_virtualmachine_flavor" "filtered" {
-  zone_id = "xxxx"
+  zone_id = var.zone_id
 
-  filter {
-    name   = "name"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.name_filter) > 0 ? [var.name_filter] : []
+    content {
+      name   = "name"
+      values = filter.value
+    }
   }
 
-  filter {
-    name   = "os_model"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.os_model_filter) > 0 ? [var.os_model_filter] : []
+    content {
+      name   = "os_model"
+      values = filter.value
+    }
   }
 }
 

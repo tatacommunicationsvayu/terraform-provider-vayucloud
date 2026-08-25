@@ -1,4 +1,4 @@
-# VayuCloud Network Firewall List Data Source Example
+﻿# VayuCloud Network Firewall List Data Source Example
 #
 # Lists network firewalls for an engagement and endpoint.
 
@@ -27,25 +27,46 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-# =============================================================================
-# Example 1: List all firewalls for an engagement and endpoint
-# =============================================================================
+variable "engagement_id" {
+  type        = number
+  description = "Engagement ID."
+}
 
-# =============================================================================
-# Example 2: List firewalls with an optional filter
-# =============================================================================
+variable "endpoint_id" {
+  type        = number
+  description = "Endpoint ID."
+}
+
+variable "hypervisor_filter" {
+  type        = list(string)
+  description = "Optional hypervisor filter values. Empty list skips the filter."
+  default     = []
+}
+
+data "vayucloud_network_firewall_list" "all" {
+  engagement_id = var.engagement_id
+  endpoint_id   = var.endpoint_id
+}
 
 data "vayucloud_network_firewall_list" "filtered" {
-  engagement_id = xxxxx
-  endpoint_id   = xxxxx
+  engagement_id = var.engagement_id
+  endpoint_id   = var.endpoint_id
 
-  filter {
-    name   = "hypervisor"
-    values = ["xxxx"]
+  dynamic "filter" {
+    for_each = length(var.hypervisor_filter) > 0 ? [var.hypervisor_filter] : []
+    content {
+      name   = "hypervisor"
+      values = filter.value
+    }
   }
 }
 
 output "firewalls" {
-  description = "Network firewalls for the configured engagement and endpoint"
+  description = "All network firewalls for the configured engagement and endpoint"
+  value       = data.vayucloud_network_firewall_list.all.firewalls
+}
+
+output "filtered_firewalls" {
+  description = "Network firewalls after optional hypervisor filter"
   value       = data.vayucloud_network_firewall_list.filtered.firewalls
 }

@@ -1,9 +1,13 @@
-# VayuCloud virtual machine example
+﻿# VayuCloud virtual machine example
 #
 # Prerequisites: network zone ID in the tenancy. Resolve image_id and flavor_id from the catalog
 # using filters (exact, case-insensitive per provider filter semantics).
 #
-# The resource name vm_with_disks matches examples/IaaS/resources/vayucloud_virtualmachine/import.sh
+# Supply virtual_machines via terraform.tfvars. Keys become resource addresses:
+#   vayucloud_virtualmachine.this["<key>"]
+#
+# Import an existing VM with:
+#   INSTANCE_ID=<id> terraform import 'vayucloud_virtualmachine.this["<key>"]' "$INSTANCE_ID"
 
 terraform {
   required_providers {
@@ -30,114 +34,44 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
-variable "zone_id" {
-  type        = number
-  description = "Network zone numeric ID where the VM is created."
+variable "virtual_machines" {
+  description = "Virtual machines to create, keyed by Terraform resource name."
+  type = map(object({
+    name                     = string
+    vm_purpose               = string
+    image_id                 = number
+    flavor_id                = number
+    zone_id                  = number
+    iops                     = number
+    is_kdump_or_page_enabled = string
+    usage_type               = string
+    pricing_model            = string
+    root_disk_size           = number
+    additional_disk = optional(list(object({
+      size = number
+      iops = number
+    })), [])
+    public_ip = optional(object({
+      assign_public_ip                = string
+      retain_public_ip_on_termination = string
+      public_ip_pricing_model         = string
+    }))
+  }))
 }
 
-variable "vm_name" {
-  type        = string
-  description = "Name of the virtual machine (immutable after create)."
-  default     = "terraform-example-vm"
-}
+resource "vayucloud_virtualmachine" "this" {
+  for_each = var.virtual_machines
 
-variable "vm_purpose" {
-  type        = string
-  description = "Purpose code (e.g. WEB, DB, OTHERS)."
-  default     = "WEB"
-}
-
-variable "vm_image_name_filter" {
-  type        = string
-  description = "Image catalog name matched by data.vayucloud_virtualmachine_image filter 'name' (exact, case-insensitive)."
-}
-
-variable "vm_flavor_name" {
-  type        = string
-  description = "Flavor display name matched by data.vayucloud_virtualmachine_flavor filter 'name' (exact, case-insensitive)."
-}
-
-variable "vm_flavor_os_model" {
-  type        = string
-  description = "Flavor OS model matched by filter 'os_model', e.g. ubuntu (exact, case-insensitive)."
-}
-
-variable "root_iops" {
-  type        = number
-  description = "Root disk IOPS (required by API; replaces VM if changed)."
-  default     = 1
-}
-
-variable "root_disk_size_gb" {
-  type        = number
-  description = "Root disk size in GB."
-  default     = 150
-}
-
-data "vayucloud_virtualmachine_image" "os" {
-  zone_id = tostring(var.zone_id)
-
-  filter {
-    name   = "name"
-    values = [var.vm_image_name_filter]
-  }
-}
-
-data "vayucloud_virtualmachine_flavor" "size" {
-  zone_id = tostring(var.zone_id)
-
-  filter {
-    name   = "name"
-    values = [var.vm_flavor_name]
-  }
-
-  filter {
-    name   = "os_model"
-    values = [var.vm_flavor_os_model]
-  }
-}
-
-resource "vayucloud_virtualmachine" "vm_with_disks" {
-  name       = var.vm_name
-  vm_purpose = var.vm_purpose
-
-  image_id  = data.vayucloud_virtualmachine_image.os.images[0].id
-  flavor_id = data.vayucloud_virtualmachine_flavor.size.flavors[0].id
-  zone_id   = var.zone_id
-  iops      = var.root_iops
-
-  is_kdump_or_page_enabled = "No"
-
-  usage_type    = "ppu"
-  pricing_model = "hourly"
-
-  root_disk_size = var.root_disk_size_gb
-
-  # Uncomment to define a layout (partition values must be allowed per schema: /root, /boot, /usr, /swap, /cDrive, /page).
-  # root_disk_partitions = [
-  #   { partition = "/root", size = 72 },
-  #   { partition = "/boot", size = 2 },
-  #   { partition = "/usr",  size = 10 },
-  #   { partition = "/swap", size = 16 },
-  # ]
-
-  additional_disk = [
-    { size = 100, iops = 1 },
-  ]
-
-  # Uncomment to allocate a public IP at create time.
-  # public_ip = {
-  #   assign_public_ip               = "yes"
-  #   retain_public_ip_on_termination = "no"
-  #   public_ip_pricing_model         = "daily"
-  # }
-}
-
-output "virtual_machine" {
-  value = {
-    id           = vayucloud_virtualmachine.vm_with_disks.id
-    audit_id     = vayucloud_virtualmachine.vm_with_disks.audit_id
-    status       = vayucloud_virtualmachine.vm_with_disks.status
-    power_status = vayucloud_virtualmachine.vm_with_disks.power_status
-  }
+  name                     = each.value.name
+  vm_purpose               = each.value.vm_purpose
+  image_id                 = each.value.image_id
+  flavor_id                = each.value.flavor_id
+  zone_id                  = each.value.zone_id
+  iops                     = each.value.iops
+  is_kdump_or_page_enabled = each.value.is_kdump_or_page_enabled
+  usage_type               = each.value.usage_type
+  pricing_model            = each.value.pricing_model
+  root_disk_size           = each.value.root_disk_size
+  additional_disk          = each.value.additional_disk
+  public_ip                = each.value.public_ip
 }

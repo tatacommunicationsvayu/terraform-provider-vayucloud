@@ -148,33 +148,150 @@ func (r *ResourceGroupBusinessUnitResource) Configure(ctx context.Context, req r
 }
 
 // ModifyPlan validates the firewall ID during terraform plan.
-// Destroy plans use prior state when the plan value is null.
+// When name or users change, audit_id is marked unknown so Update may set the new audit id.
 func (r *ResourceGroupBusinessUnitResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if r.client == nil {
 		return
 	}
 
-	var plan ResourceGroupBusinessUnitResourceModel
+	// Destroy: validate from prior state when plan is null.
 	if req.Plan.Raw.IsNull() {
-		resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
-	} else {
-		resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+		var state ResourceGroupBusinessUnitResourceModel
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if state.FirewallID.IsUnknown() || state.FirewallID.IsNull() {
+			return
+		}
+		if err := network_firewall.ValidateFirewallExists(r.client, ctx, state.FirewallID.ValueInt64()); err != nil {
+			resp.Diagnostics.AddError("Invalid Firewall ID", err.Error())
+		}
+		return
 	}
+
+	var plan ResourceGroupBusinessUnitResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if plan.FirewallID.IsUnknown() {
+	if !plan.FirewallID.IsUnknown() && !plan.FirewallID.IsNull() {
+		if err := network_firewall.ValidateFirewallExists(r.client, ctx, plan.FirewallID.ValueInt64()); err != nil {
+			resp.Diagnostics.AddError("Invalid Firewall ID", err.Error())
+			return
+		}
+	}
+
+	// Create: no prior state — computed audit_id/status already unknown.
+	if req.State.Raw.IsNull() {
 		return
 	}
 
-	if err := network_firewall.ValidateFirewallExists(r.client, ctx, plan.FirewallID.ValueInt64()); err != nil {
-		resp.Diagnostics.AddError(
-			"Invalid Firewall ID",
-			err.Error(),
-		)
+	var state ResourceGroupBusinessUnitResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	nameChanged := !plan.BusinessUnit.IsUnknown() &&
+		plan.BusinessUnit.ValueString() != state.BusinessUnit.ValueString()
+	usersChanged, err := businessUnitUsersChanged(ctx, r.client, plan.Users, state.Users)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Users Attribute", err.Error())
+		return
+	}
+
+	planDirty := false
+
+	// Normalize users in the plan (provider username is always attached on create/update).
+	if !plan.Users.IsUnknown() {
+		var users []string
+		if !plan.Users.IsNull() {
+			resp.Diagnostics.Append(plan.Users.ElementsAs(ctx, &users, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+		normalized := ensureProviderUserInList(r.client, users)
+		usersList, diags := types.ListValueFrom(ctx, types.StringType, normalized)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if !plan.Users.Equal(usersList) {
+			plan.Users = usersList
+			planDirty = true
+		}
+	}
+
+	// New audit id is issued on update; mark unknown so apply may differ from prior state.
+	if nameChanged || usersChanged {
+		plan.AuditID = types.StringUnknown()
+		planDirty = true
+	}
+
+	if planDirty {
+		resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+	}
+}
+
+// ensureProviderUserInList appends the authenticated provider username when missing.
+func ensureProviderUserInList(c *client.Client, users []string) []string {
+	providerUsername := c.GetUsername()
+	for _, u := range users {
+		if u == providerUsername {
+			return users
+		}
+	}
+	return append(users, providerUsername)
+}
+
+// businessUnitUsersChanged reports whether planned users differ from state after
+// applying the same provider-username normalization used on create/update.
+func businessUnitUsersChanged(ctx context.Context, c *client.Client, planUsers, stateUsers types.List) (bool, error) {
+	if planUsers.IsUnknown() {
+		return false, nil
+	}
+	if planUsers.Equal(stateUsers) {
+		return false, nil
+	}
+
+	var planList, stateList []string
+	if !planUsers.IsNull() {
+		diags := planUsers.ElementsAs(ctx, &planList, false)
+		if diags.HasError() {
+			return false, fmt.Errorf("plan users: %s", diags.Errors()[0].Detail())
+		}
+	}
+	if !stateUsers.IsNull() && !stateUsers.IsUnknown() {
+		diags := stateUsers.ElementsAs(ctx, &stateList, false)
+		if diags.HasError() {
+			return false, fmt.Errorf("state users: %s", diags.Errors()[0].Detail())
+		}
+	}
+
+	planList = ensureProviderUserInList(c, planList)
+	stateList = ensureProviderUserInList(c, stateList)
+	if len(planList) != len(stateList) {
+		return true, nil
+	}
+	counts := make(map[string]int, len(planList))
+	for _, u := range planList {
+		counts[u]++
+	}
+	for _, u := range stateList {
+		counts[u]--
+		if counts[u] < 0 {
+			return true, nil
+		}
+	}
+	for _, n := range counts {
+		if n != 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Create creates a new business unit resource.
@@ -205,18 +322,8 @@ func (r *ResourceGroupBusinessUnitResource) Create(ctx context.Context, req reso
 	var users []string
 	if !data.Users.IsNull() && !data.Users.IsUnknown() {
 		resp.Diagnostics.Append(data.Users.ElementsAs(ctx, &users, false)...)
-	}
-	// Always include the provider username in the users list
-	providerUsername := r.client.GetUsername()
-	found := false
-	for _, u := range users {
-		if u == providerUsername {
-			found = true
-			break
-		}
-	}
-	if !found {
-		users = append(users, providerUsername)
+	}else{
+		users = ensureProviderUserInList(r.client, []string{})
 	}
 
 	// Build the create request
@@ -341,18 +448,16 @@ func (r *ResourceGroupBusinessUnitResource) Read(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// Update updates the business unit resource.
+// Update updates the business unit resource (name and/or users).
 func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan ResourceGroupBusinessUnitResourceModel
 	var state ResourceGroupBusinessUnitResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Read current state
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -363,7 +468,6 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 		"business_unit": plan.BusinessUnit.ValueString(),
 	})
 
-	// Validate that the firewall ID exists
 	if err := network_firewall.ValidateFirewallExists(r.client, ctx, plan.FirewallID.ValueInt64()); err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid Firewall ID",
@@ -372,18 +476,39 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 		return
 	}
 
-	// Check if business_unit name changed
-	if plan.BusinessUnit.ValueString() != state.BusinessUnit.ValueString() {
-		tflog.Debug(ctx, "Business unit name changed", map[string]any{
-			"old_name": state.BusinessUnit.ValueString(),
-			"new_name": plan.BusinessUnit.ValueString(),
+	nameChanged := plan.BusinessUnit.ValueString() != state.BusinessUnit.ValueString()
+	usersChanged, err := businessUnitUsersChanged(ctx, r.client, plan.Users, state.Users)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Users Attribute", err.Error())
+		return
+	}
+
+	if nameChanged || usersChanged {
+		tflog.Debug(ctx, "Business unit attributes changed", map[string]any{
+			"name_changed":  nameChanged,
+			"users_changed": usersChanged,
+			"old_name":      state.BusinessUnit.ValueString(),
+			"new_name":      plan.BusinessUnit.ValueString(),
 		})
 
+		var users []string
+		switch {
+		case !plan.Users.IsNull() && !plan.Users.IsUnknown():
+			resp.Diagnostics.Append(plan.Users.ElementsAs(ctx, &users, false)...)
+		case !state.Users.IsNull() && !state.Users.IsUnknown():
+			resp.Diagnostics.Append(state.Users.ElementsAs(ctx, &users, false)...)
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		users = ensureProviderUserInList(r.client, users)
+
 		updateReq := &ResourceGroupBusinessUnitCreateRequest{
+			FirewallID:   plan.FirewallID.ValueInt64(),
 			BusinessUnit: plan.BusinessUnit.ValueString(),
+			Users:        users,
 		}
 
-		// Update business unit and wait for completion
 		auditLog, err := UpdateResourceGroupBusinessUnitAndWait(r.client, ctx, plan.ID.ValueString(), updateReq)
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -393,12 +518,25 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 			return
 		}
 
-		// Update status from audit log
-		plan.Status = types.StringValue(auditLog.Status)
+		// audit_id was marked unknown in ModifyPlan when name/users change.
+		if auditLog.AuditID != "" {
+			plan.AuditID = types.StringValue(auditLog.AuditID)
+		}
+
+		// Keep platform status from plan/state (e.g. ACTIVE). Do not use audit "Completed".
+		usersList, diags := types.ListValueFrom(ctx, types.StringType, users)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Users = usersList
 
 		tflog.Info(ctx, "Resource group business unit updated successfully", map[string]any{
 			"id":            plan.ID.ValueString(),
 			"business_unit": plan.BusinessUnit.ValueString(),
+			"audit_id":      plan.AuditID.ValueString(),
+			"status":        plan.Status.ValueString(),
+			"users":         users,
 		})
 	} else {
 		tflog.Debug(ctx, "No changes detected, skipping update", map[string]any{
@@ -406,12 +544,9 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 		})
 	}
 
-	// Resolve users: if plan has unknown users, carry forward from state
 	if plan.Users.IsUnknown() {
 		plan.Users = state.Users
 	}
-
-	// Ensure computed attributes are known after apply (plan may have unknown values on update)
 	if plan.AuditID.IsUnknown() || plan.AuditID.IsNull() {
 		plan.AuditID = state.AuditID
 	}
@@ -419,7 +554,6 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 		plan.Status = state.Status
 	}
 
-	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

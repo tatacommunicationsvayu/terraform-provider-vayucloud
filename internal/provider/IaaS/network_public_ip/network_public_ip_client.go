@@ -53,7 +53,7 @@ func AssociatePublicIP(c *client.Client, ctx context.Context, resourceType, reso
 		"resource_id":   resourceID,
 	})
 
-	path := fmt.Sprintf("%s/publicIp/%s/%s/associate", common.NetworkOperationsPath, resourceType, url.PathEscape(resourceID))
+	path := fmt.Sprintf("%s/public_ip/%s/%s/associate", common.NetworkOperationsPath, resourceType, url.PathEscape(resourceID))
 	respBody, err := c.DoRequest(ctx, http.MethodPut, path, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to associate public IP: %w", err)
@@ -86,7 +86,7 @@ func DissociatePublicIP(c *client.Client, ctx context.Context, resourceType, res
 		"public_ip":     body.PublicIP,
 	})
 
-	path := fmt.Sprintf("%s/publicIp/%s/%s/dissociate", common.NetworkOperationsPath, resourceType, url.PathEscape(resourceID))
+	path := fmt.Sprintf("%s/public_ip/%s/%s/dissociate", common.NetworkOperationsPath, resourceType, url.PathEscape(resourceID))
 	respBody, err := c.DoRequest(ctx, http.MethodPut, path, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dissociate public IP: %w", err)

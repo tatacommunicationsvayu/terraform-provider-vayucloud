@@ -63,7 +63,6 @@ func ParseMinimumCommitmentValue(minimumCommitment string) (int64, error) {
 	} else {
 		numStr = minimumCommitment
 	}
-	fmt.Println("numStr", numStr)
 	value, err := strconv.ParseInt(numStr, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid bandwidth format: %s", minimumCommitment)
@@ -73,7 +72,8 @@ func ParseMinimumCommitmentValue(minimumCommitment string) (int64, error) {
 }
 
 // ValidateThroughputAndBandwidth validates that firewall throughput is >= bandwidth.
-func ValidateThroughputAndBandwidth(throughput, bandwidth string) error {
+// When bandwidth exceeds throughput, a warning is logged and no error is returned.
+func ValidateThroughputAndBandwidth(ctx context.Context, throughput, bandwidth string) error {
 	throughputValue, err := parseBandwidthValue(throughput)
 	if err != nil {
 		return fmt.Errorf("invalid firewall throughput: %w", err)
@@ -85,12 +85,10 @@ func ValidateThroughputAndBandwidth(throughput, bandwidth string) error {
 	}
 
 	if throughputValue < bandwidthValue {
-		return fmt.Errorf(
-			"internet bandwidth of higher value than firewall throughput is not supported, "+
-				"please upgrade firewall throughput as well to enjoy selected higher internet bandwidth "+
-				"(throughput: %s, bandwidth: %s)",
-			throughput, bandwidth,
-		)
+		tflog.Warn(ctx, "internet bandwidth of higher value than firewall throughput is not supported, please upgrade firewall throughput as well to enjoy selected higher internet bandwidth", map[string]any{
+			"throughput": throughput,
+			"bandwidth":  bandwidth,
+		})
 	}
 
 	return nil
@@ -121,12 +119,11 @@ func ValidateMinimumCommitment(ctx context.Context, throughput, minimumCommitmen
 		"throughputValue": throughputValue,
 	})
 	if throughputValue < bandwidthValue {
-		return fmt.Errorf(
-			"Maximum burst bandwidth for the selected minimum commitment is higher than firewall throughput, "+
-				"We Recommend to upgrade firewall throughput as well to enjoy selected higher minimum commitment "+
-				"(throughput: %s, minimumCommitment: %s, Maximum burst bandwidth: %s)",
-			throughput, minimumCommitment, equivalentBandwidth,
-		)
+		tflog.Warn(ctx, "Maximum burst bandwidth for the selected minimum commitment is higher than firewall throughput, We Recommend to upgrade firewall throughput as well to enjoy selected higher minimum commitment", map[string]any{
+			"throughput":               throughput,
+			"minimumCommitment":        minimumCommitment,
+			"Maximum burst bandwidth":  equivalentBandwidth,
+		})
 	}
 
 	return nil

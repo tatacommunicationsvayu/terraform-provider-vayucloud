@@ -24,8 +24,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_lb"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_zone"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 )
 
 var _ resource.Resource = &NetworkPublicIPResource{}
@@ -88,6 +90,7 @@ func (r *NetworkPublicIPResource) Schema(ctx context.Context, req resource.Schem
 						"firewall",
 						"baremetal",
 						"loadbalancer",
+						"vcs",
 					),
 				},
 			},
@@ -176,6 +179,10 @@ func validatePublicIPTargetResource(ctx context.Context, c *client.Client, resou
 		return network_zone.ValidateNetworkZoneExists(c, ctx, resourceID)
 	case "virtualmachine":
 		return virtualmachine.ValidateInstanceExists(c, ctx, resourceID)
+	case "loadbalancer":
+		return network_lb.ValidateLoadBalancerExists(c, ctx, resourceID)
+	case "vcs":
+		return network_firewall.ValidateFirewallExists(c, ctx, resourceID)
 	default:
 		return nil
 	}
@@ -221,6 +228,9 @@ func (r *NetworkPublicIPResource) Create(ctx context.Context, req resource.Creat
 	if r.client == nil {
 		resp.Diagnostics.AddError("Client not configured", "Expected configured API client")
 		return
+	}
+	if data.ResourceType.ValueString() == "vcs" {
+		data.ResourceType = types.StringValue("firewall")
 	}
 
 	if err := validatePublicIPTargetResource(ctx, r.client, data.ResourceType.ValueString(), data.ResourceID.ValueInt64()); err != nil {

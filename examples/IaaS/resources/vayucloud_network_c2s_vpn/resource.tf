@@ -32,6 +32,11 @@ variable "firewall_id" {
   description = "Network firewall resource ID hosting the VPN."
 }
 
+variable "zone_id" {
+  type        = number
+  description = "Network zone ID associated with the VPN."
+}
+
 variable "c2s_vpn_pricing_model" {
   type        = string
   description = "e.g. daily, monthly, reserved_1 (see docs)."
@@ -49,6 +54,7 @@ variable "c2s_vpn_users" {
 
 resource "vayucloud_network_c2s_vpn" "example" {
   firewall_id   = var.firewall_id
+  zone_id       = var.zone_id
   pricing_model = var.c2s_vpn_pricing_model
   users         = var.c2s_vpn_users
 }

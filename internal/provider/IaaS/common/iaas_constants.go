@@ -7,20 +7,35 @@ package common
 // API endpoint constants
 const (
 	// NetworkOperationsPath is the path for the network operations API
-	NetworkOperationsPath = "uat-networkservice/network_operations"
-	// NetworkOperationsPath = "network_operations"
+	//NetworkOperationsPath = "networkservice/network_operations"
+	NetworkOperationsPath = "network_operations"
 
-	ConfigServicePath = "uat-portalservice/configservice"
-	// ConfigServicePath = "configservice"
-	SecurityServicePath = "uat-portalservice/securityservice"
-	//SecurityServicePath = "securityservice"
+	//ConfigServicePath = "portalservice/configservice"
+	ConfigServicePath = "configservice"
+	//SecurityServicePath = "portalservice/securityservice"
+	SecurityServicePath = "securityservice"
 
-	InstanceServicePath = "uat-portalservice/vm-instances"
-	// InstanceServicePath = "vm-instances"
+	//InstanceServicePath = "portalservice/vm-instances"
+	InstanceServicePath = "vm-instances"
 
-	AuditLogServicePath = "uat-auditlogservice/auditlog"
-	// AuditLogServicePath = "auditlog"
+	//AuditLogServicePath = "auditlogservice/auditlog"
+	AuditLogServicePath = "auditlog"
 
-	NetworkServicePath = "uat-networkservice/network"
-	// NetworkServicePath = "network"
+	//NetworkServicePath = "networkservice/network"
+	NetworkServicePath = "network"
+
+	// LoadBalancerServicePath is LBConfigController (@RequestMapping("/loadbalancer")) under network-service context.
+	//LoadBalancerServicePath = "networkservice/loadbalancer"
+	LoadBalancerServicePath = "loadbalancer"
+	//FirewallConfigPath = "networkservice/firewallconfig"
+	FirewallConfigPath = "firewallconfig"
+	//FileStorageServicePath = "portalservice/nas"
+	FileStorageServicePath = "nas"
+
+	//ICSOperationsPath = "ics-service/ics-operations"
+	ICSOperationsPath = "ics-operations"
+
+	// SecurityGroupServicePath is the path for security group and security group rule APIs.
+	//SecurityGroupServicePath = "networkservice/security-group"
+	SecurityGroupServicePath = "security-group"
 )

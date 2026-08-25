@@ -21,21 +21,35 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/account_engagement"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/file_server"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/file_storage_export_policy"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/file_storage_volume"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/nas"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/account_engagement_auditlog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/account_location"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/auditlog_details"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/keypair"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_c2s_vpn"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_c2s_vpn_user"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_lb"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_lb_ssl_profile"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_lb_virtualservice"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall_rule"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_public_ip"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_zone"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/resource_group_business_unit"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/resource_group_environment"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/s3_bucket"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/s3_domain"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/s3_object"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/s3_token"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/s3_user"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/security_group"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine_blockstorage"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine_flavor"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine_image"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/virtualmachine_security_group_association"
 )
 
 // Ensure VayuCloudProvider satisfies various provider interfaces.
@@ -96,8 +110,7 @@ You can configure credentials either in the provider block or via environment va
 
 ` + "```hcl" + `
 provider "vayucloud" {
-  username = "admin"
-  password = "secret"
+  # Or set VAYU_USERNAME and VAYU_PASSWORD in the environment.
 }
 ` + "```" + `
 `,
@@ -132,8 +145,11 @@ func (p *VayuCloudProvider) ValidateConfig(ctx context.Context, req provider.Val
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	username := os.Getenv("VAYU_USERNAME")
+	password := os.Getenv("VAYU_PASSWORD")
 
-	if config.Username.IsUnknown() {
+
+	if config.Username.IsUnknown() && username == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("username"),
 			"Unknown VayuCloud Username",
@@ -142,7 +158,7 @@ func (p *VayuCloudProvider) ValidateConfig(ctx context.Context, req provider.Val
 		)
 	}
 
-	if config.Password.IsUnknown() {
+	if config.Password.IsUnknown() && password == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("password"),
 			"Unknown VayuCloud Password",
@@ -253,17 +269,31 @@ func (p *VayuCloudProvider) Configure(ctx context.Context, req provider.Configur
 // Resources defines the resources implemented in the provider.
 func (p *VayuCloudProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		file_server.NewFileServerResource,
+		file_storage_volume.NewFileStorageVolumeResource,
+		file_storage_export_policy.NewFileStorageExportPolicyResource,
 		network_c2s_vpn.NewNetworkC2SVPNResource,
 		network_c2s_vpn_user.NewNetworkC2SVPNUserResource,
 		network_firewall.NewNetworkFirewallResource,
+		network_lb.NewNetworkLBResource,
+		network_lb_virtualservice.NewNetworkLBVirtualServiceResource,
+		network_lb_ssl_profile.NewNetworkLBSSLProfileResource,
+		network_firewall_rule.NewNetworkFirewallRuleResource,
 		network_public_ip.NewNetworkPublicIPResource,
 		network_zone.NewNetworkZoneResource,
-		keypair.NewKeypairResource,
 		virtualmachine.NewVirtualMachineResource,
 		virtualmachine_blockstorage.NewVirtualMachineBlockStorageResource,
 		virtualmachine.NewVirtualMachineStateResource,
 		resource_group_business_unit.NewResourceGroupBusinessUnitResource,
 		resource_group_environment.NewResourceGroupEnvironmentResource,
+		nas.NewExtendNasZoneResource,
+		s3_domain.NewS3DomainResource,
+		s3_bucket.NewS3BucketResource,
+		s3_object.NewS3ObjectResource,
+		s3_user.NewS3UserResource,
+		s3_token.NewS3TokenResource,
+		security_group.NewSecurityGroupResource,
+		virtualmachine_security_group_association.NewVirtualMachineSecurityGroupAssociationResource,
 	}
 }
 
@@ -274,6 +304,12 @@ func (p *VayuCloudProvider) DataSources(ctx context.Context) []func() datasource
 		network_c2s_vpn_user.NewNetworkC2SVPNUsersDataSource,
 		network_firewall.NewNetworkFirewallDataSource,
 		network_firewall.NewNetworkFirewallListDataSource,
+		network_firewall_rule.NewNetworkFirewallRuleDataSource,
+		network_firewall_rule.NewNetworkFirewallRuleListDataSource,
+		network_lb.NewNetworkLBDataSource,
+		network_lb.NewNetworkLBListDataSource,
+		network_lb_virtualservice.NewNetworkLBVirtualServiceOptionsDataSource,
+		network_lb_ssl_profile.NewNetworkLBSSLProfilesDataSource,
 		network_public_ip.NewNetworkPublicIPsDataSource,
 		network_zone.NewNetworkZoneDataSource,
 		network_zone.NewNetworkZoneListDataSource,
@@ -283,12 +319,29 @@ func (p *VayuCloudProvider) DataSources(ctx context.Context) []func() datasource
 		resource_group_business_unit.NewResourceGroupBusinessUnitListDataSource,
 		resource_group_environment.NewResourceGroupEnvironmentDataSource,
 		resource_group_environment.NewResourceGroupEnvironmentListDataSource,
+		s3_domain.NewS3DomainDataSource,
+		s3_domain.NewS3DomainListDataSource,
+		s3_bucket.NewS3BucketDataSource,
+		s3_bucket.NewS3BucketListDataSource,
+		s3_object.NewS3ObjectDataSource,
+		s3_object.NewS3ObjectListDataSource,
+		s3_user.NewS3UserDataSource,
+		s3_user.NewS3UserListDataSource,
+		s3_token.NewS3TokenDataSource,
+		s3_token.NewS3TokenListDataSource,
 		account_engagement_auditlog.NewAccountEngagementAuditLogDataSource,
 		auditlog_details.NewAuditLogDetailsDataSource,
 		virtualmachine_image.NewVirtualMachineImageDataSource,
 		virtualmachine_flavor.NewVirtualMachineFlavorDataSource,
 		virtualmachine.NewVirtualMachineDataSource,
 		virtualmachine.NewVirtualMachineListDataSource,
+		file_server.NewFileServerDataSource,
+		file_server.NewFileServerListDataSource,
 		virtualmachine_blockstorage.NewVirtualMachineBlockStorageDataSource,
+		file_storage_volume.NewFileStorageDataSource,
+		nas.NewNasVlanZoneDataSource,
+		security_group.NewListSecurityGroupDataSource,
+		security_group.NewListSecurityGroupRulesDataSource,
+		security_group.NewVirtualMachineListSecurityGroupRulesDataSource,
 	}
 }

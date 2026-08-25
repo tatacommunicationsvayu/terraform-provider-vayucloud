@@ -27,8 +27,13 @@ variable "vayucloud_password" {
   sensitive   = true
 }
 
+variable "firewall_id" {
+  type        = number
+  description = "Firewall ID hosting the C2S VPN."
+}
+
 data "vayucloud_network_c2s_vpn_users" "vpn_users" {
-  firewall_id = xxxxx
+  firewall_id = var.firewall_id
 }
 
 output "user_names" {

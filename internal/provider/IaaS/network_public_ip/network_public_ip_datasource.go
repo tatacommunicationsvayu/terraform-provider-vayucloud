@@ -39,9 +39,10 @@ type NetworkPublicIPListItemModel struct {
 
 // NetworkPublicIPsDataSourceModel is the data source root model.
 type NetworkPublicIPsDataSourceModel struct {
-	ID           types.String                   `tfsdk:"id"`
-	FirewallID   types.Int64                    `tfsdk:"firewall_id"`
-	EngagementID types.Int64                    `tfsdk:"engagement_id"`
+	ID            types.String                   `tfsdk:"id"`
+	FirewallID    types.Int64                    `tfsdk:"firewall_id"`
+	EngagementID  types.Int64                    `tfsdk:"engagement_id"`
+	Filters       []client.FilterModel           `tfsdk:"filter"`
 	PublicIPItems []NetworkPublicIPListItemModel `tfsdk:"public_ips"`
 }
 
@@ -93,8 +94,11 @@ func (d *NetworkPublicIPsDataSource) Metadata(ctx context.Context, req datasourc
 func (d *NetworkPublicIPsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Lists public IP inventory returned by the network public-ips API for a firewall or engagement.",
-		MarkdownDescription: "Calls `GET .../network/public-ips?firewall-ci={id}` or `?engagement={id}` and exposes each `content` entry (subset of fields).",
+		MarkdownDescription: "Calls `GET .../network/public-ips?firewall-ci={id}` or `?engagement={id}` and exposes each `content` entry (subset of fields).\n\nOptionally, use `filter` blocks to narrow results client-side by `public_ip_segment`, `is_used`, `location`, `purpose`, or `description`.",
 
+		Blocks: map[string]schema.Block{
+			"filter": client.FilterBlockSchema(),
+		},
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Same as the firewall_id or engagement_id used in the request, as a string.",
@@ -195,6 +199,24 @@ func (d *NetworkPublicIPsDataSource) Read(ctx context.Context, req datasource.Re
 			Description:     types.StringValue(it.Description),
 		})
 	}
+
+	if len(data.Filters) > 0 {
+		tflog.Debug(ctx, "Applying filters to public IPs", map[string]any{
+			"filter_count":     len(data.Filters),
+			"pre_filter_count": len(out),
+		})
+		filtered, filterErr := client.ApplyFilters(out, data.Filters)
+		if filterErr != nil {
+			resp.Diagnostics.AddError("Error Filtering Public IPs", filterErr.Error())
+			return
+		}
+		out = filtered
+
+		tflog.Debug(ctx, "Filters applied to public IPs", map[string]any{
+			"post_filter_count": len(out),
+		})
+	}
+
 	data.PublicIPItems = out
 
 	tflog.Info(ctx, "Public IPs data source read", map[string]any{"count": len(out)})
