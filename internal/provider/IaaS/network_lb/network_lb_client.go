@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 )
 
 // LoadBalancerEnablementRequest matches LoadBalancerEnablementVO for enable/modify LB.
@@ -119,7 +120,10 @@ func DisableLoadBalancer(c *client.Client, ctx context.Context, firewallCiMaster
 	return &result, nil
 }
 
-// ListLoadBalancers retrieves all LBs for engagement+endpoint via action-state API.
+// ListLoadBalancers retrieves all LBs for an engagement and endpoint.
+//
+// GET {LoadBalancerServicePath}/list-state/{engagementId}/{endpointId}
+// Returns the same response envelope as the legacy action-state list API (module=loadbalancer, action=list).
 // Backend returns FAILED when no LBs exist; that is treated as an empty list.
 func ListLoadBalancers(c *client.Client, ctx context.Context, engagementID int64, endpointID int64) ([]map[string]interface{}, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing load balancers", map[string]any{
@@ -127,16 +131,15 @@ func ListLoadBalancers(c *client.Client, ctx context.Context, engagementID int64
 		"endpoint_id":   endpointID,
 	})
 
-	body := map[string]any{
-		"engagementId": engagementID,
-		"endpointId":   endpointID,
-	}
-
-	path := fmt.Sprintf(common.ConfigServicePath+"/action-state?module=%s&action=%s", "loadbalancer", "list")
-	respBody, err := c.DoRequestNoTimeout(ctx, http.MethodPost, path, body)
+	path := fmt.Sprintf("%s/states/%d/%d", common.LoadBalancerServicePath, engagementID, endpointID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list load balancers: %w", err)
 	}
+
+	tflog.Debug(ctx, "List load balancers response", map[string]any{
+		"response": string(respBody),
+	})
 
 	var resp common.ActionStateResponse
 	if err := json.Unmarshal(respBody, &resp); err != nil {
@@ -175,14 +178,14 @@ func ListLoadBalancers(c *client.Client, ctx context.Context, engagementID int64
 	return items, &resp, nil
 }
 
-// GetLoadBalancerDetails fetches LB state via action-state read, with network getDetails fallback.
+// GetLoadBalancerDetails fetches LB state via loadbalancer/state, with network getDetails fallback.
 func GetLoadBalancerDetails(c *client.Client, ctx context.Context, lbCiMasterId int64) (map[string]interface{}, error) {
-	details, err := getLoadBalancerDetailsFromActionState(c, ctx, lbCiMasterId)
+	details, err := getLoadBalancerDetailsFromState(c, ctx, lbCiMasterId)
 	if err == nil {
 		return details, nil
 	}
 
-	tflog.Debug(ctx, "Action-state read failed, trying network getDetails", map[string]any{
+	tflog.Debug(ctx, "Load balancer state read failed, trying network getDetails", map[string]any{
 		"lb_ci_id": lbCiMasterId,
 		"error":    err.Error(),
 	})
@@ -192,7 +195,7 @@ func GetLoadBalancerDetails(c *client.Client, ctx context.Context, lbCiMasterId 
 		return fallback, nil
 	}
 
-	return nil, fmt.Errorf("action-state read failed: %w; getDetails fallback failed: %v", err, fallbackErr)
+	return nil, fmt.Errorf("load balancer state read failed: %w; getDetails fallback failed: %v", err, fallbackErr)
 }
 
 // ValidateLoadBalancerExists checks that the load balancer CI is readable from the platform.
@@ -228,14 +231,24 @@ func ResolveFirewallCIFromLB(c *client.Client, ctx context.Context, lbCiID int64
 	return 0, fmt.Errorf("load balancer %d response missing firewall_id", lbCiID)
 }
 
-func getLoadBalancerDetailsFromActionState(c *client.Client, ctx context.Context, lbCiMasterId int64) (map[string]interface{}, error) {
-	body := map[string]any{
-		"resourceId": lbCiMasterId,
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "loadbalancer", "read", body)
+// getLoadBalancerDetailsFromState reads load balancer state.
+//
+// GET {LoadBalancerServicePath}/state/{loadbalancerId}
+// Returns the same response envelope as the legacy action-state read API (module=loadbalancer, action=read).
+func getLoadBalancerDetailsFromState(c *client.Client, ctx context.Context, lbCiMasterId int64) (map[string]interface{}, error) {
+	path := fmt.Sprintf("%s/state/%d", common.LoadBalancerServicePath, lbCiMasterId)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	tflog.Debug(ctx, "Load balancer state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse load balancer state response: %w", err)
 	}
 
 	if resp.Status != "SUCCESS" && resp.Status != "success" {
@@ -248,7 +261,7 @@ func getLoadBalancerDetailsFromActionState(c *client.Client, ctx context.Context
 
 	var details map[string]interface{}
 	if err := json.Unmarshal(resp.Data, &details); err != nil {
-		return nil, fmt.Errorf("failed to parse action-state data: %w", err)
+		return nil, fmt.Errorf("failed to parse load balancer state data: %w", err)
 	}
 
 	return details, nil
@@ -276,10 +289,7 @@ func ResolveLbCiIDFromFirewall(c *client.Client, ctx context.Context, firewallCi
 		"firewall_ci_id": firewallCiID,
 	})
 
-	fwBody := map[string]any{
-		"resourceId": firewallCiID,
-	}
-	fwResp, err := common.UpdateActionState(ctx, c, "firewall", "read", fwBody)
+	fwResp, err := network_firewall.ReadNetworkFirewallState(c, ctx, strconv.FormatInt(firewallCiID, 10))
 	if err != nil {
 		return 0, fmt.Errorf("failed to read firewall %d: %w", firewallCiID, err)
 	}
@@ -356,6 +366,7 @@ func getLoadBalancerDetailsFromNetwork(c *client.Client, ctx context.Context, lb
 
 	return data, nil
 }
+
 // normalizeLBBandwidth treats the numeric value as Mbps. Accepts "100" or "100Mbps"; API always receives "100Mbps". Gbps is not supported.
 // maxLBBandwidthMbps matches backend validateBandwidth (LoadBalancerService).
 const maxLBBandwidthMbps = 1000

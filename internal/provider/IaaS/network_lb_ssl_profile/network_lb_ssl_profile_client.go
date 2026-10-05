@@ -265,17 +265,32 @@ func DeleteSSLProfile(c *client.Client, ctx context.Context, lbCiMasterID int64,
 	return result, nil
 }
 
-// GetSSLProfileDetails fetches SSL profile state from action-state API.
-// Action-state uses the upload base name (without .pem).
+// GetSSLProfileDetails fetches SSL profile state.
+//
+// GET {LoadBalancerServicePath}/lb-sslprofile-state/{loadbalancerId}?certificateName={name}
+// certificateName is the upload base name (without .pem).
+// Returns the same response envelope as the legacy action-state read API (module=sslprofile, action=read).
 func GetSSLProfileDetails(c *client.Client, ctx context.Context, lbCiMasterID int64, storageName string) (map[string]interface{}, error) {
-	body := map[string]any{
-		"resourceId":      lbCiMasterID,
-		"certificateName": stripPEMSuffix(storageName),
+	certificateName := stripPEMSuffix(storageName)
+	path := fmt.Sprintf(
+		"%s/lb-sslprofile-state/%d?certificateName=%s",
+		common.LoadBalancerServicePath,
+		lbCiMasterID,
+		url.QueryEscape(certificateName),
+	)
+
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ssl profile state: %w", err)
 	}
 
-	resp, err := common.UpdateActionState(ctx, c, "sslprofile", "read", body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ssl profile details: %w", err)
+	tflog.Debug(ctx, "SSL profile state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse ssl profile state response: %w", err)
 	}
 
 	if resp.Status != "SUCCESS" && resp.Status != "success" {
@@ -288,7 +303,7 @@ func GetSSLProfileDetails(c *client.Client, ctx context.Context, lbCiMasterID in
 
 	var details map[string]interface{}
 	if err := json.Unmarshal(resp.Data, &details); err != nil {
-		return nil, fmt.Errorf("failed to parse ssl profile details: %w", err)
+		return nil, fmt.Errorf("failed to parse ssl profile state data: %w", err)
 	}
 	return details, nil
 }
@@ -329,10 +344,3 @@ func stringFromActionStateMap(m map[string]interface{}, keys ...string) string {
 	}
 	return ""
 }
-
-
-
-
-
-
-

@@ -438,24 +438,33 @@ func findVSInList(list []map[string]interface{}, vsName string) (map[string]inte
 	return nil, false
 }
 
-// GetVirtualServiceDetails fetches VS state from action-state API
+// GetVirtualServiceDetails fetches virtual service state.
+//
+// GET {LoadBalancerServicePath}/lb-virtualservice-state/{virtualserviceId}
+// Returns the same response envelope as the legacy action-state read API (module=virtualservice, action=read).
 func GetVirtualServiceDetails(c *client.Client, ctx context.Context, vsCiMasterId int64) (map[string]interface{}, error) {
-	tflog.Debug(ctx, "Getting virtual service details", map[string]any{
-		"vs_ci_id": vsCiMasterId,
+	tflog.Debug(ctx, "Getting virtual service state", map[string]any{
+		"virtualservice_id": vsCiMasterId,
 	})
 
-	body := map[string]any{
-		"resourceId": vsCiMasterId,
+	path := fmt.Sprintf("%s/lb-virtualservice-state/%d", common.LoadBalancerServicePath, vsCiMasterId)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get virtual service state: %w", err)
 	}
 
-	resp, err := common.UpdateActionState(ctx, c, "virtualservice", "read", body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get virtual service details: %w", err)
+	tflog.Debug(ctx, "Virtual service state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse virtual service state response: %w", err)
 	}
 
 	var details map[string]interface{}
 	if err := json.Unmarshal(resp.Data, &details); err != nil {
-		return nil, fmt.Errorf("failed to parse virtual service details: %w", err)
+		return nil, fmt.Errorf("failed to parse virtual service state data: %w", err)
 	}
 
 	return details, nil

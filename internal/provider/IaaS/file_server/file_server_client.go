@@ -319,48 +319,56 @@ func DeleteFileServerAndWait(c *client.Client, ctx context.Context, vserverID in
 	})
 }
 
-// ReadFileServer reads file server state via common.UpdateActionState
-// (POST …/configservice/action-state?module=FileServer&action=read).
+// ReadFileServer reads file server state.
+//
+// GET {FileStorageServicePath}/fileserver-state/{fileServerId}
+// Returns the same response envelope as the legacy action-state read API (module=FileServer, action=read).
 func ReadFileServer(c *client.Client, ctx context.Context, vserverID string) (*common.ActionStateResponse, *FileServerDetail, error) {
-	tflog.Debug(ctx, "Reading file server action state", map[string]any{"resource_id": vserverID})
+	tflog.Debug(ctx, "Reading file server state", map[string]any{"resource_id": vserverID})
 
 	vid, err := strconv.ParseInt(vserverID, 10, 64)
 	if err != nil {
-		return nil, nil, fmt.Errorf("file server id must be numeric for action-state read: %w", err)
+		return nil, nil, fmt.Errorf("file server id must be numeric for state read: %w", err)
 	}
 
-	body := map[string]any{
-		"resourceId": vid,
-	}
-
-	actionResp, err := common.UpdateActionState(ctx, c, fileServerAuditModule, fileServerAuditActionRead, body)
+	path := fmt.Sprintf("%s/fileserver-state/%d", common.FileStorageServicePath, vid)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file server: %w", err)
+	}
+
+	tflog.Debug(ctx, "File server state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var actionResp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &actionResp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse file server state response: %w", err)
 	}
 
 	if actionResp.Status != "success" {
 		msg := strings.ToLower(actionResp.Message)
 		if strings.Contains(msg, "not found") {
-			return actionResp, nil, fmt.Errorf("%w: %s", ErrFileServerNotFound, vserverID)
+			return &actionResp, nil, fmt.Errorf("%w: %s", ErrFileServerNotFound, vserverID)
 		}
-		return actionResp, nil, fmt.Errorf("file server read failed: %s (code: %d)", actionResp.Message, actionResp.ResponseCode)
+		return &actionResp, nil, fmt.Errorf("file server read failed: %s (code: %d)", actionResp.Message, actionResp.ResponseCode)
 	}
 
 	var readData FileServerActionStateReadData
 	if len(actionResp.Data) > 0 {
 		if err := json.Unmarshal(actionResp.Data, &readData); err != nil {
-			return actionResp, nil, fmt.Errorf("failed to parse file server read data: %w", err)
+			return &actionResp, nil, fmt.Errorf("failed to parse file server read data: %w", err)
 		}
 	}
 
 	detail := fileServerReadDataToDetail(&readData)
 	tflog.Info(ctx, "File server read successfully", map[string]any{"resource_id": vid})
 
-	return actionResp, &detail, nil
+	return &actionResp, &detail, nil
 }
 
-// ReadFileServerDetail loads file server attributes for refresh and delete. It prefers action-state
-// (module FileServer, action read) and falls back to GET fetchVserverDetails when action-state fails,
+// ReadFileServerDetail loads file server attributes for refresh and delete. It prefers fileserver-state
+// and falls back to GET fetchVserverDetails when state read fails,
 // so state can still store engagement_id for outputs and destroy.
 func ReadFileServerDetail(c *client.Client, ctx context.Context, vserverID string) (*FileServerDetail, error) {
 	_, detail, err := ReadFileServer(c, ctx, vserverID)
@@ -375,9 +383,9 @@ func ReadFileServerDetail(c *client.Client, ctx context.Context, vserverID strin
 		if errors.Is(gerr, ErrFileServerNotFound) {
 			return nil, gerr
 		}
-		return nil, fmt.Errorf("file server read failed (action-state: %v; fetchVserverDetails: %w)", err, gerr)
+		return nil, fmt.Errorf("file server read failed (fileserver-state: %v; fetchVserverDetails: %w)", err, gerr)
 	}
-	tflog.Info(ctx, "File server detail loaded via fetchVserverDetails after action-state read failure")
+	tflog.Info(ctx, "File server detail loaded via fetchVserverDetails after fileserver-state read failure")
 	return fallback, nil
 }
 

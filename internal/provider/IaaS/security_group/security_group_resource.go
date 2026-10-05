@@ -993,6 +993,10 @@ func alignPlanRuleIDsByFingerprint(plan *SecurityGroupResourceModel, stateRules 
 			matched = true
 			stateID := stateRules[j].ID
 			if stateID.IsNull() || stateID.IsUnknown() || stateID.ValueString() == "" {
+				if !plan.Rules[i].ID.IsUnknown() {
+					plan.Rules[i].ID = types.StringUnknown()
+					changed = true
+				}
 				break
 			}
 			if !plan.Rules[i].ID.Equal(stateID) {
@@ -1004,11 +1008,10 @@ func alignPlanRuleIDsByFingerprint(plan *SecurityGroupResourceModel, stateRules 
 		if matched {
 			continue
 		}
-		if plan.Rules[i].ID.IsNull() || plan.Rules[i].ID.IsUnknown() {
-			continue
+		if !plan.Rules[i].ID.IsUnknown() {
+			plan.Rules[i].ID = types.StringUnknown()
+			changed = true
 		}
-		plan.Rules[i].ID = types.StringUnknown()
-		changed = true
 	}
 	return changed
 }

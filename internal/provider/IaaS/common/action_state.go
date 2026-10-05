@@ -8,9 +8,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+// ActionStatePollInterval is the interval between action-state status checks.
+const ActionStatePollInterval = 10 * time.Second
+
+// ActionStatePollMaxAttempts is the maximum number of action-state polling attempts.
+const ActionStatePollMaxAttempts = 30
 
 // ActionStateResponse represents the response from the action-state API.
 type ActionStateResponse struct {
@@ -28,14 +36,106 @@ type ActionStateHTTPClient interface {
 // UpdateActionState calls the action-state API to update the resource state after audit completion.
 // POST {APIControlPath}/action-state?module={module}&action={action}
 // Request body: {"resourceId": resourceId}
-// Returns the parsed response body and any error that occurred.
+// When the API returns status "error", polls every ActionStatePollInterval until status is "success"
+// or ActionStatePollMaxAttempts is reached.
 func UpdateActionState(ctx context.Context, c ActionStateHTTPClient, module string, action string, requestBody any) (*ActionStateResponse, error) {
-	tflog.Debug(ctx, "Updating action state", map[string]any{
-		"module":       module,
-		"action":       action,
-		"request_body": requestBody,
+	readImportRefresh := action == "read" || action == "import" || action == "refresh"
+
+	tflog.Info(ctx, "Calling action-state API", map[string]any{
+		"module":        module,
+		"action":        action,
+		"request_body":  requestBody,
+		"poll_interval": ActionStatePollInterval.String(),
+		"max_attempts":  ActionStatePollMaxAttempts,
 	})
 
+	var lastResult *ActionStateResponse
+
+	for attempt := 1; attempt <= ActionStatePollMaxAttempts; attempt++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		tflog.Debug(ctx, "Action-state API request", map[string]any{
+			"module":       module,
+			"action":       action,
+			"request_body": requestBody,
+			"attempt":      attempt,
+			"max":          ActionStatePollMaxAttempts,
+		})
+
+		result, err := postActionState(ctx, c, module, action, requestBody)
+		if err != nil {
+			return nil, err
+		}
+		lastResult = result
+
+		if strings.EqualFold(result.Status, "success") {
+			if readImportRefresh {
+				tflog.Debug(ctx, "Action state response (read/import/refresh)", map[string]any{
+					"response_status": result.Status,
+					"attempts":        attempt,
+				})
+			} else {
+				tflog.Info(ctx, "Action state updated successfully", map[string]any{
+					"module":        module,
+					"action":        action,
+					"request_body":  requestBody,
+					"response":      string(result.Data),
+					"response_code": result.ResponseCode,
+					"attempts":      attempt,
+				})
+			}
+			return result, nil
+		}
+
+		if strings.EqualFold(result.Status, "error") {
+			tflog.Debug(ctx, "Action-state returned error, waiting before retry", map[string]any{
+				"module":       module,
+				"action":       action,
+				"attempt":      attempt,
+				"max":          ActionStatePollMaxAttempts,
+				"message":      result.Message,
+				"next_poll_in": ActionStatePollInterval.String(),
+			})
+		} else if readImportRefresh {
+			tflog.Debug(ctx, "Action state response (read/import/refresh)", map[string]any{
+				"response_status": result.Status,
+				"attempts":        attempt,
+			})
+			return result, nil
+		} else {
+			return nil, fmt.Errorf("action-state API returned non-success status: %s, message: %s", result.Status, result.Message)
+		}
+
+		if attempt < ActionStatePollMaxAttempts {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(ActionStatePollInterval):
+			}
+		}
+	}
+
+	if lastResult != nil && strings.EqualFold(lastResult.Status, "error") {
+		return nil, fmt.Errorf(
+			"action-state API still returned error after %d attempts (%v): %s",
+			ActionStatePollMaxAttempts,
+			time.Duration(ActionStatePollMaxAttempts)*ActionStatePollInterval,
+			lastResult.Message,
+		)
+	}
+
+	return nil, fmt.Errorf(
+		"action-state API timed out after %d attempts (%v)",
+		ActionStatePollMaxAttempts,
+		time.Duration(ActionStatePollMaxAttempts)*ActionStatePollInterval,
+	)
+}
+
+func postActionState(ctx context.Context, c ActionStateHTTPClient, module string, action string, requestBody any) (*ActionStateResponse, error) {
 	path := fmt.Sprintf(ConfigServicePath+"/action-state?module=%s&action=%s", module, action)
 
 	respBody, err := c.DoRequestNoTimeout(ctx, http.MethodPost, path, requestBody)
@@ -43,19 +143,9 @@ func UpdateActionState(ctx context.Context, c ActionStateHTTPClient, module stri
 		return nil, fmt.Errorf("failed to call action-state API: %w", err)
 	}
 
-	if action == "read" || action == "import" || action == "refresh" {
-		tflog.Debug(ctx, "Action state response (read/import/refresh)", map[string]any{
-			"response": string(respBody),
-		})
-
-		var result ActionStateResponse
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			return nil, fmt.Errorf("failed to parse action-state response: %w", err)
-		}
-		return &result, nil
-	}
-
-	tflog.Debug(ctx, "Action state response", map[string]any{
+	tflog.Debug(ctx, "Action state response body", map[string]any{
+		"module":   module,
+		"action":   action,
 		"response": string(respBody),
 	})
 
@@ -63,18 +153,6 @@ func UpdateActionState(ctx context.Context, c ActionStateHTTPClient, module stri
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse action-state response: %w", err)
 	}
-
-	if result.Status != "success" {
-		return nil, fmt.Errorf("action-state API returned non-success status: %s, message: %s", result.Status, result.Message)
-	}
-
-	tflog.Info(ctx, "Action state updated successfully", map[string]any{
-		"module":        module,
-		"action":        action,
-		"request_body":  requestBody,
-		"response":      string(result.Data),
-		"response_code": result.ResponseCode,
-	})
 
 	return &result, nil
 }

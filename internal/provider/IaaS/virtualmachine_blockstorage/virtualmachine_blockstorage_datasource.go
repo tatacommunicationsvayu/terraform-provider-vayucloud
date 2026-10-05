@@ -124,7 +124,7 @@ func (d *VirtualMachineBlockStorageDataSource) Read(ctx context.Context, req dat
 		return
 	}
 
-	data.ID = types.StringValue(fmt.Sprintf("%s-%d", instanceID, volumeID))
+	data.ID = types.StringValue(fmt.Sprintf("%d-%d", instanceID, volumeID))
 	data.Name = types.StringValue(vol.Name)
 	data.Size = types.Int64Value(vol.Size)
 	data.IOPS = types.Int64Value(vol.IOPS)

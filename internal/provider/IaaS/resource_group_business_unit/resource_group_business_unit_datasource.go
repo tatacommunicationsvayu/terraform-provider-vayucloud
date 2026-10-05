@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
 // Ensure provider-defined types fully satisfy framework interfaces.
@@ -62,7 +61,7 @@ func (d *ResourceGroupBusinessUnitDataSource) Metadata(ctx context.Context, req 
 func (d *ResourceGroupBusinessUnitDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves details of a resource group business unit from the VayuCloud API.",
-		MarkdownDescription: "Retrieves details of a resource group business unit from the VayuCloud API.\n\nThis data source calls the action-state API with `module=engagementComponents` and `action=read` to return the current state of a business unit.",
+		MarkdownDescription: "Retrieves details of a resource group business unit from the VayuCloud API.\n\nThis data source calls `GET /securityservice/businessunit-state/{businessUnitId}` to return the current state of a business unit.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -138,14 +137,7 @@ func (d *ResourceGroupBusinessUnitDataSource) Read(ctx context.Context, req data
 		"resource_group_business_unit_id": data.ResourceGroupBusinessUnitID.ValueString(),
 	})
 
-	// Build the request body (same as resource Read)
-	actionStateBody := map[string]any{
-		"resourceId":   data.ResourceGroupBusinessUnitID.ValueString(),
-		"resourceType": "BU",
-	}
-
-	// Call action-state API to get the latest business unit data
-	actionStateResponse, err := common.UpdateActionState(ctx, d.client, "engagementComponents", "read", actionStateBody)
+	actionStateResponse, err := ReadBusinessUnitState(d.client, ctx, data.ResourceGroupBusinessUnitID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Resource Group Business Unit",

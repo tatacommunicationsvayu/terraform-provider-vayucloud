@@ -20,7 +20,7 @@ import (
 
 const (
 	attachClientPath = "/attachClient"
-	detachClientPath = "/volumes/%d/clients/%s"
+	detachClientPath = "/volumes/%d/client"
 )
 
 // NasClientActionRequest is the JSON body for attachClient (POST).
@@ -140,14 +140,17 @@ func waitNasReadiness(ctx context.Context) error {
 	}
 }
 
-// DetachNASClient detaches a client IP via DELETE .../nas/volumes/{volumeId}/clients/{clientIp}.
-// clientIp is path-escaped (e.g. CIDR slash becomes %2F).
+// DetachNASClient detaches a client IP via
+// DELETE .../nas/volumes/{volumeId}/client?clientIp={clientIp}.
 func DetachNASClient(c *client.Client, ctx context.Context, clientIP, nasVolCiID string) (*client.AuditResponse, error) {
 	nasVolCi, err := strconv.ParseInt(nasVolCiID, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("file_storage_volume_id %q is not a valid volumeId: %w", nasVolCiID, err)
 	}
-	path := fmt.Sprintf(detachClientPath, nasVolCi, url.PathEscape(strings.TrimSpace(clientIP)))
+	path := fmt.Sprintf(detachClientPath, nasVolCi)
+	query := url.Values{}
+	query.Set("clientIp", strings.TrimSpace(clientIP))
+	path += "?" + query.Encode()
 	fullPath := common.FileStorageServicePath + path
 	respBody, err := c.DoRequest(ctx, http.MethodDelete, fullPath, nil)
 	if err != nil {

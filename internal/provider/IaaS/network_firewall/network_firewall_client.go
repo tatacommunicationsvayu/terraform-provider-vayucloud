@@ -321,31 +321,38 @@ type NetworkFirewallListItem struct {
 	Hypervisor           string `json:"hypervisor"`
 }
 
-// ListNetworkFirewalls retrieves all firewalls for a given engagement and endpoint
-// via the action-state API with module=firewall&action=list.
+// ListNetworkFirewalls retrieves all firewalls for a given engagement and endpoint.
+//
+// GET {NetworkOperationsPath}/list-firewall-state/{engagementId}/{endpointId}
+// Returns the same response envelope as the legacy action-state list API (module=firewall, action=list).
 func ListNetworkFirewalls(c *client.Client, ctx context.Context, engagementID int64, endpointID int64) ([]NetworkFirewallListItem, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing network firewalls", map[string]any{
 		"engagement_id": engagementID,
 		"endpoint_id":   endpointID,
 	})
 
-	body := map[string]any{
-		"engagementId": engagementID,
-		"endpointId":   endpointID,
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "firewall", "list", body)
+	path := fmt.Sprintf("%s/firewalls-state/%d/%d", common.NetworkOperationsPath, engagementID, endpointID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list network firewalls: %w", err)
 	}
 
+	tflog.Debug(ctx, "List network firewalls response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse network firewall list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []NetworkFirewallListItem{}, resp, nil
+		return []NetworkFirewallListItem{}, &resp, nil
 	}
 
 	var items []NetworkFirewallListItem
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse network firewall list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse network firewall list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Network firewalls listed successfully", map[string]any{
@@ -354,7 +361,34 @@ func ListNetworkFirewalls(c *client.Client, ctx context.Context, engagementID in
 		"endpoint_id":   endpointID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
+}
+
+// ReadNetworkFirewallState retrieves the current firewall state.
+//
+// GET {NetworkOperationsPath}/firewall-state/{firewallId}
+// Returns the same response envelope as the legacy action-state read API (module=firewall, action=read).
+func ReadNetworkFirewallState(c *client.Client, ctx context.Context, firewallID string) (*common.ActionStateResponse, error) {
+	tflog.Debug(ctx, "Reading network firewall state", map[string]any{
+		"firewall_id": firewallID,
+	})
+
+	path := fmt.Sprintf("%s/firewall-state/%s", common.NetworkOperationsPath, firewallID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read network firewall state: %w", err)
+	}
+
+	tflog.Debug(ctx, "Network firewall state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var result common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse network firewall state response: %w", err)
+	}
+
+	return &result, nil
 }
 
 func ValidateFirewallExists(c *client.Client, ctx context.Context, firewallID int64) error {
@@ -362,21 +396,17 @@ func ValidateFirewallExists(c *client.Client, ctx context.Context, firewallID in
 		"firewall_id": firewallID,
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId": fmt.Sprintf("%d", firewallID),
-	}
-
-	actionStateResponse, err := common.UpdateActionState(ctx, c, "firewall", "read", actionStateBody)
+	stateResponse, err := ReadNetworkFirewallState(c, ctx, fmt.Sprintf("%d", firewallID))
 	if err != nil {
 		return fmt.Errorf("failed to validate firewall ID: %w", err)
 	}
 
-	if len(actionStateResponse.Data) == 0 {
+	if len(stateResponse.Data) == 0 {
 		return fmt.Errorf("Firewall ID %d is not available", firewallID)
 	}
 
 	var responseMap map[string]interface{}
-	if err := json.Unmarshal(actionStateResponse.Data, &responseMap); err != nil {
+	if err := json.Unmarshal(stateResponse.Data, &responseMap); err != nil {
 		return fmt.Errorf("Firewall ID %d is not available", firewallID)
 	}
 

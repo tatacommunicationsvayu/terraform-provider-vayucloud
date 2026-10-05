@@ -32,21 +32,21 @@ type AdditionalDisk struct {
 //
 // POST {APIURL}/<InstanceServicePath>/createinstance (common.InstanceServicePath)
 type VirtualMachineCreateRequest struct {
-	Name                        string           `json:"name"`
-	VMPurpose                   string           `json:"vmPurpose"`
-	ImageID                     int64            `json:"imageId"`
-	FlavorID                    int64            `json:"flavorId"`
-	ZoneID                      int64            `json:"zoneId"`
-	IOPS                        int64            `json:"iops"`
-	IsKdumpOrPageEnabled        string           `json:"isKdumpOrPageEnabled"`
-	UsageType                   string           `json:"usageType,omitempty"`
-	PricingModel                string           `json:"pricingModel,omitempty"`
-	RootDiskSize                int64            `json:"rootDiskSize,omitempty"`
-	AssignPublicIp              string           `json:"assignpublicIp,omitempty"`
-	RetainPublicIPOnTermination string           `json:"retainPublicIPOnTermination,omitempty"`
-	PublicIpPricingModel        string           `json:"publicIpPricingModel,omitempty"`
-	DiskPartitions              []DiskPartition  `json:"diskPartitions,omitempty"`
-	AdditionalDisk              []AdditionalDisk `json:"additionalDisk,omitempty"`
+	Name                        string             `json:"name"`
+	VMPurpose                   string             `json:"vmPurpose"`
+	ImageID                     int64              `json:"imageId"`
+	FlavorID                    int64              `json:"flavorId"`
+	ZoneID                      int64              `json:"zoneId"`
+	IOPS                        int64              `json:"iops"`
+	IsKdumpOrPageEnabled        string             `json:"isKdumpOrPageEnabled"`
+	UsageType                   string             `json:"usageType,omitempty"`
+	PricingModel                string             `json:"pricingModel,omitempty"`
+	RootDiskSize                int64              `json:"rootDiskSize,omitempty"`
+	AssignPublicIp              string             `json:"assignpublicIp,omitempty"`
+	RetainPublicIPOnTermination string             `json:"retainPublicIPOnTermination,omitempty"`
+	PublicIpPricingModel        string             `json:"publicIpPricingModel,omitempty"`
+	DiskPartitions              []DiskPartition    `json:"diskPartitions,omitempty"`
+	AdditionalDisk              []AdditionalDisk   `json:"additionalDisk,omitempty"`
 	CustomCredentials           *CustomCredentials `json:"customCredentials,omitempty"`
 }
 
@@ -516,6 +516,9 @@ func PerformVMPowerAction(c *client.Client, ctx context.Context, instanceID stri
 	})
 
 	apiPath := fmt.Sprintf("%s/%s/%s", common.InstanceServicePath, instanceID, powerAction)
+	tflog.Debug(ctx, "API path", map[string]any{
+		"api_path": apiPath,
+	})
 	respBody, err := c.DoRequest(ctx, http.MethodPost, apiPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform power action %s: %w", powerAction, err)
@@ -607,29 +610,37 @@ type VirtualMachineListItem struct {
 	VRam          int64                      `json:"vRam"`
 }
 
-// ListVirtualMachines retrieves all virtual machines for a given zone
-// via the action-state API with module=instance&action=list.
+// ListVirtualMachines retrieves all virtual machines for a given zone.
+//
+// GET {InstanceServicePath}/list-instance-state/{zoneId}
+// Returns the same response envelope as the legacy action-state list API (module=instance, action=list).
 func ListVirtualMachines(c *client.Client, ctx context.Context, zoneID int64) ([]VirtualMachineListItem, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing virtual machines", map[string]any{
 		"zone_id": zoneID,
 	})
 
-	body := map[string]any{
-		"resourceId": fmt.Sprintf("%d", zoneID),
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "instance", "list", body)
+	path := fmt.Sprintf("%s/instances-state/%d", common.InstanceServicePath, zoneID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list virtual machines: %w", err)
 	}
 
+	tflog.Debug(ctx, "List virtual machines response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse virtual machine list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []VirtualMachineListItem{}, resp, nil
+		return []VirtualMachineListItem{}, &resp, nil
 	}
 
 	var items []VirtualMachineListItem
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse virtual machine list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse virtual machine list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Virtual machines listed successfully", map[string]any{
@@ -637,7 +648,7 @@ func ListVirtualMachines(c *client.Client, ctx context.Context, zoneID int64) ([
 		"zone_id": zoneID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
 }
 
 // VirtualMachineVolume represents a volume attached to a virtual machine.

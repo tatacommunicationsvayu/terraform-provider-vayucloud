@@ -59,7 +59,7 @@ func (d *ResourceGroupEnvironmentListDataSource) Metadata(ctx context.Context, r
 func (d *ResourceGroupEnvironmentListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves the list of resource group environments from the VayuCloud API for a given business unit.",
-		MarkdownDescription: "Retrieves the list of resource group environments from the VayuCloud API for a given business unit.\n\nThis data source calls the action-state API with `module=engagementComponents`, `action=list`, and `resourceType=ENV`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
+		MarkdownDescription: "Retrieves the list of resource group environments from the VayuCloud API for a given business unit.\n\nThis data source calls `GET /securityservice/list-environment-state/{businessUnitId}`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
 
 		Blocks: map[string]schema.Block{
 			"filter": client.FilterBlockSchema(),

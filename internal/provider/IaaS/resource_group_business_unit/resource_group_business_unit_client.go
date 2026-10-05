@@ -241,30 +241,37 @@ type BusinessUnitListItem struct {
 	Users        interface{} `json:"users"`
 }
 
-// ListBusinessUnits retrieves all business units for a given firewall
-// via the action-state API with module=engagementComponents&action=list.
+// ListBusinessUnits retrieves all business units for a given firewall.
+//
+// GET {SecurityServicePath}/list-businessunit-state/{firewallId}
+// Returns the same response envelope as the legacy action-state list API (module=engagementComponents, action=list).
 func ListBusinessUnits(c *client.Client, ctx context.Context, firewallID int64) ([]BusinessUnitListItem, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing business units", map[string]any{
 		"firewall_id": firewallID,
 	})
 
-	body := map[string]any{
-		"resourceId":   fmt.Sprintf("%d", firewallID),
-		"resourceType": "BU",
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "engagementComponents", "list", body)
+	path := fmt.Sprintf("%s/businessunits-state/%d", common.SecurityServicePath, firewallID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list business units: %w", err)
 	}
 
+	tflog.Debug(ctx, "List business units response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse business unit list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []BusinessUnitListItem{}, resp, nil
+		return []BusinessUnitListItem{}, &resp, nil
 	}
 
 	var items []BusinessUnitListItem
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse business unit list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse business unit list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Business units listed successfully", map[string]any{
@@ -272,17 +279,39 @@ func ListBusinessUnits(c *client.Client, ctx context.Context, firewallID int64) 
 		"firewall_id": firewallID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
 }
 
-// getBusinessUnitReadMap performs the engagementComponents read UpdateActionState call used by ValidateBusinessUnitExists.
-func getBusinessUnitReadMap(c *client.Client, ctx context.Context, businessUnitID int64) (map[string]interface{}, error) {
-	actionStateBody := map[string]any{
-		"resourceId":   fmt.Sprintf("%d", businessUnitID),
-		"resourceType": "BU",
+// ReadBusinessUnitState retrieves the current business unit state.
+//
+// GET {SecurityServicePath}/businessunit-state/{businessUnitId}
+// Returns the same response envelope as the legacy action-state read API (module=engagementComponents, action=read).
+func ReadBusinessUnitState(c *client.Client, ctx context.Context, businessUnitID string) (*common.ActionStateResponse, error) {
+	tflog.Debug(ctx, "Reading business unit state", map[string]any{
+		"business_unit_id": businessUnitID,
+	})
+
+	path := fmt.Sprintf("%s/businessunit-state/%s", common.SecurityServicePath, businessUnitID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read business unit state: %w", err)
 	}
 
-	actionStateResponse, err := common.UpdateActionState(ctx, c, "engagementComponents", "read", actionStateBody)
+	tflog.Debug(ctx, "Business unit state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var result common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse business unit state response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// getBusinessUnitReadMap reads business unit state used by ValidateBusinessUnitExists.
+func getBusinessUnitReadMap(c *client.Client, ctx context.Context, businessUnitID int64) (map[string]interface{}, error) {
+	actionStateResponse, err := ReadBusinessUnitState(c, ctx, fmt.Sprintf("%d", businessUnitID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate business unit ID: %w", err)
 	}
@@ -333,8 +362,8 @@ func firewallIDStringFromBURead(m map[string]interface{}) (string, bool) {
 	return "", false
 }
 
-// ValidateBusinessUnitExists checks whether a business unit with the given ID exists
-// by calling the action-state read API. Returns nil if found, or an error if not.
+// ValidateBusinessUnitExists checks whether a business unit with the given ID exists.
+// Returns nil if found, or an error if not.
 func ValidateBusinessUnitExists(c *client.Client, ctx context.Context, businessUnitID int64) error {
 	tflog.Debug(ctx, "Validating business unit exists", map[string]any{
 		"business_unit_id": businessUnitID,
@@ -352,7 +381,7 @@ func ValidateBusinessUnitExists(c *client.Client, ctx context.Context, businessU
 	return nil
 }
 
-// ValidateBusinessUnitExistsForFirewall uses the same engagementComponents read API as ValidateBusinessUnitExists,
+// ValidateBusinessUnitExistsForFirewall uses the same business unit state API as ValidateBusinessUnitExists,
 // then requires a firewall id in the response (string firewallId from API) matching firewallID from config/plan.
 func ValidateBusinessUnitExistsForFirewall(c *client.Client, ctx context.Context, businessUnitID, firewallID int64) error {
 	tflog.Debug(ctx, "Validating business unit exists for firewall", map[string]any{

@@ -128,12 +128,7 @@ func AttachVolumeAndWait(c *client.Client, ctx context.Context, instanceID int64
 		return nil, err
 	}
 
-	// Create an empty requestBody object for future extensibility, currently unused.
-	requestBody := map[string]any{
-		"instanceAction": "attach-disk",
-		"size":           req.Size,
-	}
-	auditLog, err := c.WaitForAuditCompletion(ctx, attachResp.Data.Audit.AuditID, "update", "instance", requestBody)
+	auditLog, err := c.WaitForAuditCompletionNoActionState(ctx, attachResp.Data.Audit.AuditID)
 	if err != nil {
 		return nil, fmt.Errorf("attach-volume failed: %w", err)
 	}
@@ -145,20 +140,24 @@ func AttachVolumeAndWait(c *client.Client, ctx context.Context, instanceID int64
 	return auditLog, nil
 }
 
-// FindNonRootVolumeIDByName returns the volume ID for a non-root volume with the given name on the instance.
-func FindNonRootVolumeIDByName(c *client.Client, ctx context.Context, instanceID, volumeName string) (int64, error) {
-	detail, err := virtualmachine.GetVirtualMachineDetail(c, ctx, instanceID)
+// FindNonRootVolumeIDByNameAndSize returns the volume ID for a non-root additional disk matching name and size.
+func FindNonRootVolumeIDByNameAndSize(c *client.Client, ctx context.Context, instanceID int64, volumeName string, size int64) (int64, error) {
+	detail, err := virtualmachine.GetVirtualMachineDetail(c, ctx, fmt.Sprintf("%d", instanceID))
 	if err != nil {
 		return 0, err
 	}
 
+	trimmedName := strings.TrimSpace(volumeName)
 	for _, v := range detail.Data.Volumes {
-		if strings.EqualFold(strings.TrimSpace(v.Name), strings.TrimSpace(volumeName)) && strings.ToLower(v.DiskType) != "root" {
+		if strings.ToLower(v.DiskType) == "root" {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(v.Name), trimmedName) && v.Size == size {
 			return v.ID, nil
 		}
 	}
 
-	return 0, fmt.Errorf("no non-root volume named %q found on instance %s", volumeName, instanceID)
+	return 0, fmt.Errorf("no non-root volume named %q with size %d found on instance %d", volumeName, size, instanceID)
 }
 
 // GetVolumeByID returns volume details from the instance detail API.
@@ -175,7 +174,7 @@ func GetVolumeByID(c *client.Client, ctx context.Context, instanceID int64, volu
 		}
 	}
 
-	return nil, fmt.Errorf("volume id %d not found on instance %s", volumeID, instanceID)
+	return nil, fmt.Errorf("volume id %d not found on instance %d", volumeID, instanceID)
 }
 
 // DeleteAttachedVolume deletes a volume attached to an instance.

@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
+	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 )
 
 // DomainNameSuffix is appended server-side to the short domain_name to form the FQDN.
@@ -79,27 +80,26 @@ func ExpectedDomainFQDN(shortName string) string {
 	return shortName + DomainNameSuffix
 }
 
-func buildListRequestBody(engagementID, endpointID int64, firewallID *int64) map[string]any {
-	body := map[string]any{
-		"engagementId": engagementID,
-		"endpointId":   endpointID,
-	}
+func buildListRequestBody(firewallID *int64) map[string]any {
+	body := map[string]any{}
 	if firewallID != nil {
 		body["firewallId"] = *firewallID
 	}
 	return body
 }
 
-func buildReadRequestBody(engagementID int64, resourceID string, firewallID int64) map[string]any {
+func buildReadRequestBody(engagementID int64, firewallID int64) map[string]any {
 	return map[string]any{
 		"engagementId": engagementID,
-		"resourceId":   resourceID,
 		"firewallId":   firewallID,
 	}
 }
 
-// ListS3Domains returns all domains for an IPC engagement and endpoint via
-// action-state module=domain, action=list. The backend resolves IPC→ICS engagement.
+// ListS3Domains returns all domains for an IPC engagement and endpoint.
+//
+// POST {ICSOperationsPath}/list-domain-state/{engagementId}/{endpointId}
+// Request body: {"firewallId": <id>} (optional)
+// Returns the same response envelope as the legacy action-state list API (module=domain, action=list).
 func ListS3Domains(c *client.Client, ctx context.Context, engagementID, endpointID int64, firewallID *int64) ([]S3DomainPayload, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing S3 domains", map[string]any{
 		"engagement_id": engagementID,
@@ -107,18 +107,28 @@ func ListS3Domains(c *client.Client, ctx context.Context, engagementID, endpoint
 		"firewall_id":   firewallID,
 	})
 
-	resp, err := common.UpdateActionState(ctx, c, actionStateModule, "list", buildListRequestBody(engagementID, endpointID, firewallID))
+	path := fmt.Sprintf("%s/domains-state/%d/%d", common.ICSOperationsPath, engagementID, endpointID)
+	respBody, err := c.DoRequest(ctx, http.MethodPost, path, buildListRequestBody(firewallID))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list S3 domains: %w", err)
 	}
 
+	tflog.Debug(ctx, "List S3 domains response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse S3 domain list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []S3DomainPayload{}, resp, nil
+		return []S3DomainPayload{}, &resp, nil
 	}
 
 	var items []S3DomainPayload
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse S3 domain list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse S3 domain list response: %w", err)
 	}
 
 	tflog.Info(ctx, "S3 domains listed successfully", map[string]any{
@@ -127,11 +137,14 @@ func ListS3Domains(c *client.Client, ctx context.Context, engagementID, endpoint
 		"endpoint_id":   endpointID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
 }
 
-// ReadS3DomainActionState reads a single domain via action-state module=domain,
-// action=read and returns the parsed payload plus the full action-state wrapper.
+// ReadS3DomainActionState reads a single domain state.
+//
+// POST {ICSOperationsPath}/domain-state/{domainId}
+// Request body: {"engagementId": "<id>", "firewallId": "<id>"}
+// Returns the same response envelope as the legacy action-state read API (module=domain, action=read).
 func ReadS3DomainActionState(c *client.Client, ctx context.Context, engagementID int64, resourceID string, firewallID int64) (*S3DomainPayload, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Reading S3 domain", map[string]any{
 		"engagement_id": engagementID,
@@ -139,41 +152,48 @@ func ReadS3DomainActionState(c *client.Client, ctx context.Context, engagementID
 		"firewall_id":   firewallID,
 	})
 
-	resp, err := common.UpdateActionState(ctx, c, actionStateModule, "read", buildReadRequestBody(engagementID, resourceID, firewallID))
+	path := fmt.Sprintf("%s/domain-state/%s", common.ICSOperationsPath, resourceID)
+	respBody, err := c.DoRequest(ctx, http.MethodPost, path, buildReadRequestBody(engagementID, firewallID))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read S3 domain: %w", err)
 	}
 
+	tflog.Debug(ctx, "S3 domain state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse S3 domain state response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return nil, resp, fmt.Errorf("S3 domain id %s is not available", resourceID)
+		return nil, &resp, fmt.Errorf("S3 domain id %s is not available", resourceID)
 	}
 
 	var payload S3DomainPayload
 	if err := json.Unmarshal(resp.Data, &payload); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse S3 domain read response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse S3 domain read response: %w", err)
 	}
 
-	return &payload, resp, nil
+	return &payload, &resp, nil
 }
 
-// ReadS3Domain reads a single domain via action-state module=domain, action=read.
+// ReadS3Domain reads a single domain via POST /ics-operations/domain-state/{domainId}.
 func ReadS3Domain(c *client.Client, ctx context.Context, engagementID int64, resourceID string, firewallID int64) (*S3DomainPayload, error) {
 	payload, _, err := ReadS3DomainActionState(c, ctx, engagementID, resourceID, firewallID)
 	return payload, err
 }
 
-// ResolveEngagementEndpointFromFirewall reads firewall action-state (module=firewall,
-// action=read) and returns the IPC engagement_id and endpoint_id linked to the firewall.
+// ResolveEngagementEndpointFromFirewall reads firewall state via GET
+// /network_operations/firewall-state/{firewallId} and returns the IPC engagement_id
+// and endpoint_id linked to the firewall.
 func ResolveEngagementEndpointFromFirewall(c *client.Client, ctx context.Context, firewallID int64) (engagementID, endpointID int64, err error) {
 	tflog.Debug(ctx, "Resolving engagement and endpoint from firewall", map[string]any{
 		"firewall_id": firewallID,
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId": fmt.Sprintf("%d", firewallID),
-	}
-
-	actionStateResponse, err := common.UpdateActionState(ctx, c, "firewall", "read", actionStateBody)
+	actionStateResponse, err := network_firewall.ReadNetworkFirewallState(c, ctx, fmt.Sprintf("%d", firewallID))
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to read firewall %d: %w", firewallID, err)
 	}

@@ -25,7 +25,6 @@ import (
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/account_engagement"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/account_location"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
 // Ensure provider-defined types fully satisfy framework interfaces.
@@ -567,7 +566,7 @@ func (r *NetworkFirewallResource) Create(ctx context.Context, req resource.Creat
 		"status":   data.Status.ValueString(),
 	})
 
-	refreshDiags := r.refreshStateFromActionState(ctx, &data)
+	refreshDiags := r.refreshStateFromFirewallState(ctx, &data)
 	resp.Diagnostics.Append(refreshDiags...)
 	if refreshDiags.HasError() {
 		return
@@ -588,14 +587,11 @@ func (r *NetworkFirewallResource) Create(ctx context.Context, req resource.Creat
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// refreshStateFromActionState loads firewall display, throughput, bandwidth, minimum
-// commitment, access type, and pricing from the action-state read API. It does not
-// set id, audit_id, or status (not returned in the inner Data payload in this flow).
-func (r *NetworkFirewallResource) refreshStateFromActionState(ctx context.Context, data *NetworkFirewallResourceModel) diag.Diagnostics {
+// refreshStateFromFirewallState loads firewall display, throughput, bandwidth, minimum
+// commitment, access type, and pricing from GET network_operations/firewall-state/{id}.
+// It does not set id, audit_id, or status (not returned in the inner Data payload in this flow).
+func (r *NetworkFirewallResource) refreshStateFromFirewallState(ctx context.Context, data *NetworkFirewallResourceModel) diag.Diagnostics {
 	var d diag.Diagnostics
-	actionStateBody := map[string]any{
-		"resourceId": data.ID.ValueString(),
-	}
 	tflog.Debug(ctx, "Data object", map[string]any{
 		"data_object":            data.ID.ValueString(),
 		"engagement_id":          data.EngagementID.ValueInt64(),
@@ -608,12 +604,12 @@ func (r *NetworkFirewallResource) refreshStateFromActionState(ctx context.Contex
 		"firewall_pricing_model": data.FirewallPricingModel.ValueString(),
 		"internet_pricing_model": data.InternetPricingModel.ValueString(),
 	})
-	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "firewall", "read", actionStateBody)
+	stateResponse, err := ReadNetworkFirewallState(r.client, ctx, data.ID.ValueString())
 	if err != nil {
 		d.AddError("Error Reading Network Firewall", "Could not read network firewall: "+err.Error())
 		return d
 	}
-	if len(actionStateResponse.Data) == 0 {
+	if len(stateResponse.Data) == 0 {
 		d.AddWarning(
 			"Empty Response Data",
 			"Could not read network firewall: response data is empty, keeping existing values for API-derived attributes",
@@ -621,10 +617,10 @@ func (r *NetworkFirewallResource) refreshStateFromActionState(ctx context.Contex
 		return d
 	}
 	var responseMap map[string]interface{}
-	if err := json.Unmarshal(actionStateResponse.Data, &responseMap); err != nil {
+	if err := json.Unmarshal(stateResponse.Data, &responseMap); err != nil {
 		d.AddError(
 			"Error Unmarshalling Response Data",
-			fmt.Sprintf("Could not unmarshal response data: %s. Response: %s", err.Error(), string(actionStateResponse.Data)),
+			fmt.Sprintf("Could not unmarshal response data: %s. Response: %s", err.Error(), string(stateResponse.Data)),
 		)
 		return d
 	}
@@ -656,7 +652,7 @@ func (r *NetworkFirewallResource) Read(ctx context.Context, req resource.ReadReq
 		"id":       data.ID.ValueString(),
 		"audit_id": data.AuditID.ValueString(),
 	})
-	refreshDiags := r.refreshStateFromActionState(ctx, &data)
+	refreshDiags := r.refreshStateFromFirewallState(ctx, &data)
 	resp.Diagnostics.Append(refreshDiags...)
 	if refreshDiags.HasError() {
 		return

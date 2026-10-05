@@ -130,29 +130,38 @@ func CreateC2SVPNAndWait(c *client.Client, ctx context.Context, firewallID int64
 	return auditLog, nil
 }
 
-// ReadC2SVPN reads VPN state via common.UpdateActionState (POST …/configservice/action-state?module=c2svpn&action=read).
+// ReadC2SVPN reads VPN state for a firewall.
+//
+// GET {NetworkOperationsPath}/vpn-state/{firewallId}
+// Returns the same response envelope as the legacy action-state read API (module=c2svpn, action=read).
 func ReadC2SVPN(c *client.Client, ctx context.Context, resourceID int64) (*common.ActionStateResponse, *C2SVPNReadData, error) {
-	tflog.Debug(ctx, "Reading C2S VPN action state", map[string]any{
-		"resource_id": resourceID,
+	tflog.Debug(ctx, "Reading C2S VPN state", map[string]any{
+		"firewall_id": resourceID,
 	})
 
-	body := map[string]any{
-		"resourceId": resourceID,
-	}
-
-	actionResp, err := common.UpdateActionState(ctx, c, "c2svpn", "read", body)
+	path := fmt.Sprintf("%s/vpn-state/%d", common.NetworkOperationsPath, resourceID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read C2S VPN: %w", err)
 	}
 
+	tflog.Debug(ctx, "C2S VPN state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var actionResp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &actionResp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse C2S VPN state response: %w", err)
+	}
+
 	if actionResp.Status != "success" {
-		return actionResp, nil, fmt.Errorf("C2S VPN read failed: %s (code: %d)", actionResp.Message, actionResp.ResponseCode)
+		return &actionResp, nil, fmt.Errorf("C2S VPN read failed: %s (code: %d)", actionResp.Message, actionResp.ResponseCode)
 	}
 
 	var data C2SVPNReadData
 	if len(actionResp.Data) > 0 {
 		if err := json.Unmarshal(actionResp.Data, &data); err != nil {
-			return actionResp, nil, fmt.Errorf("failed to parse C2S VPN read data: %w", err)
+			return &actionResp, nil, fmt.Errorf("failed to parse C2S VPN read data: %w", err)
 		}
 	}
 
@@ -160,7 +169,7 @@ func ReadC2SVPN(c *client.Client, ctx context.Context, resourceID int64) (*commo
 		"resource_id": resourceID,
 	})
 
-	return actionResp, &data, nil
+	return &actionResp, &data, nil
 }
 
 // AddVPNUsers adds users (operation=create).

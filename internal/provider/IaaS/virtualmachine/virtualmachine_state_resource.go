@@ -69,6 +69,40 @@ var powerStatusToAction = map[string]string{
 	"soft_reboot": "power_on",
 }
 
+// actionToAllowedSourcePowerStatuses maps each action to power statuses from which the API permits that operation.
+var actionToAllowedSourcePowerStatuses = map[string][]string{
+	"power_off":   {"ACTIVE"},
+	"power_on":    {"STOPPED", "SHUTOFF"},
+	"suspend":     {"ACTIVE"},
+	"resume":      {"Suspended", "SUSPENDED"},
+	"soft_reboot": {"ACTIVE"},
+	"hard_reboot": {"ACTIVE", "STOPPED", "SHUTOFF", "ERROR"},
+}
+
+func powerStatusAllowsAction(action string, powerStatus string) bool {
+	allowed, ok := actionToAllowedSourcePowerStatuses[action]
+	if !ok {
+		return false
+	}
+	current := strings.TrimSpace(powerStatus)
+	for _, permitted := range allowed {
+		if strings.EqualFold(current, permitted) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateActionForPowerStatus(action string, powerStatus string) error {
+	if powerStatusAllowsAction(action, powerStatus) {
+		return nil
+	}
+	allowed := actionToAllowedSourcePowerStatuses[action]
+	return fmt.Errorf(
+		"action %q is not allowed when power_status is %q; allowed power_status values: %s",
+		action, strings.TrimSpace(powerStatus), strings.Join(allowed, ", "),
+	)
+}
 
 func (r *VirtualMachineStateResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_virtualmachine_state"
@@ -165,6 +199,24 @@ func (r *VirtualMachineStateResource) ModifyPlan(ctx context.Context, req resour
 		resp.Diagnostics.AddError("Invalid Instance ID", err.Error())
 		return
 	}
+
+	if plan.Action.IsUnknown() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	instanceIDStr := fmt.Sprintf("%d", plan.InstanceID.ValueInt64())
+	vmResp, err := GetVirtualMachineDetail(r.client, ctx, instanceIDStr)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Virtual Machine Read Failed",
+			fmt.Sprintf("Could not read virtual machine %s to validate action: %s", instanceIDStr, err.Error()),
+		)
+		return
+	}
+
+	if err := validateActionForPowerStatus(plan.Action.ValueString(), vmResp.Data.PowerStatus); err != nil {
+		resp.Diagnostics.AddError("Invalid Action for VM Power Status", err.Error())
+	}
 }
 
 func (r *VirtualMachineStateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -197,12 +249,25 @@ func (r *VirtualMachineStateResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	instanceIDStr := fmt.Sprintf("%d", instanceID)
+	vmBefore, err := GetVirtualMachineDetail(r.client, ctx, instanceIDStr)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Virtual Machine Read Failed",
+			fmt.Sprintf("Could not read virtual machine %s before power action: %s", instanceIDStr, err.Error()),
+		)
+		return
+	}
+	if err := validateActionForPowerStatus(actionName, vmBefore.Data.PowerStatus); err != nil {
+		resp.Diagnostics.AddError("Invalid Action for VM Power Status", err.Error())
+		return
+	}
+
 	tflog.Info(ctx, "Performing VM power action", map[string]any{
 		"instance_id": instanceID,
 		"action":      actionName,
 	})
 
-	instanceIDStr := fmt.Sprintf("%d", instanceID)
 	auditLog, err := PerformVMPowerActionAndWait(r.client, ctx, instanceIDStr, apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -314,6 +379,19 @@ func (r *VirtualMachineStateResource) Update(ctx context.Context, req resource.U
 		plan.AuditID = state.AuditID
 		plan.Status = state.Status
 	} else {
+		vmBefore, err := GetVirtualMachineDetail(r.client, ctx, instanceIDStr)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Virtual Machine Read Failed",
+				fmt.Sprintf("Could not read virtual machine %s before power action: %s", instanceIDStr, err.Error()),
+			)
+			return
+		}
+		if err := validateActionForPowerStatus(actionName, vmBefore.Data.PowerStatus); err != nil {
+			resp.Diagnostics.AddError("Invalid Action for VM Power Status", err.Error())
+			return
+		}
+
 		resp.Diagnostics.AddWarning(
 			fmt.Sprintf("Performing '%s' on instance %d", actionName, instanceID),
 			fmt.Sprintf("Terraform shows 'Modifying...' but the provider is changing power state from '%s' to '%s'. Please wait for the operation to complete.",

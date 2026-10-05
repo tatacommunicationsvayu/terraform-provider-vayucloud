@@ -201,6 +201,24 @@ func (r *S3BucketResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if err := ValidateBucketExists(r.client, ctx, domainID, bucketName); err != nil {
 		attrPath, summary := bucketValidationDiagnostic(err)
 		resp.Diagnostics.AddAttributeError(attrPath, summary, err.Error())
+		return
+	}
+
+	// Versioning update returns new versioning_status, audit_id, and created_at from the API.
+	// Mark them unknown in plan so apply does not expect stale UseStateForUnknown values.
+	if req.State.Raw.IsNull() {
+		return
+	}
+	var state S3BucketResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !plan.VersioningEnabled.Equal(state.VersioningEnabled) {
+		plan.VersioningStatus = types.StringUnknown()
+		plan.AuditID = types.StringUnknown()
+		plan.CreatedAt = types.StringUnknown()
+		resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 	}
 }
 

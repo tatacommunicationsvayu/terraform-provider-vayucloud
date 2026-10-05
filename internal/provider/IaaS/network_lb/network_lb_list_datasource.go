@@ -49,7 +49,7 @@ func (d *NetworkLBListDataSource) Metadata(ctx context.Context, req datasource.M
 
 func (d *NetworkLBListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Lists all Load Balancers for an engagement and endpoint.",
+		MarkdownDescription: "Lists all Load Balancers for an engagement and endpoint.\n\nThis data source calls `GET /loadbalancer/list-state/{engagementId}/{endpointId}`.",
 
 		Attributes: map[string]schema.Attribute{
 			"engagement_id": schema.Int64Attribute{

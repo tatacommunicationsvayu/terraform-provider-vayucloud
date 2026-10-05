@@ -77,7 +77,7 @@ func (d *VirtualMachineListDataSource) Metadata(ctx context.Context, req datasou
 func (d *VirtualMachineListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves the list of virtual machines from the VayuCloud API for a given network zone.",
-		MarkdownDescription: "Retrieves the list of virtual machines from the VayuCloud API for a given network zone.\n\nThis data source calls the action-state API with `module=instance` and `action=list`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
+		MarkdownDescription: "Retrieves the list of virtual machines from the VayuCloud API for a given network zone.\n\nThis data source calls `GET /vm-instances/list-instance-state/{zoneId}`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
 
 		Blocks: map[string]schema.Block{
 			"filter": client.FilterBlockSchema(),

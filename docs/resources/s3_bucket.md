@@ -9,7 +9,7 @@ description: |-
 
 Creates and deletes a bucket within an S3 domain. **Versioning** may be toggled in place.
 
-**Delete** fails with *Bucket Not Empty* if objects remain — delete `vayucloud_s3_object` resources first.
+**Delete** fails with *Bucket Not Empty* if objects remain — empty the bucket out of band (for example with an S3-compatible client) before destroy.
 
 ## Example Usage
 
@@ -48,4 +48,3 @@ terraform import vayucloud_s3_bucket.example <domain_id>:<bucket_name>
 ## See also
 
 * [`vayucloud_s3_domain`](s3_domain.md)
-* [`vayucloud_s3_object`](s3_object.md)

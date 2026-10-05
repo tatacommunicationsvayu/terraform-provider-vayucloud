@@ -31,7 +31,7 @@ type NetworkFirewallRuleListDataSource struct {
 type NetworkFirewallRuleListDataSourceModel struct {
 	ID types.String `tfsdk:"id"`
 
-	FirewallID types.Int64 `tfsdk:"firewall_id"`
+	FirewallID types.Int64          `tfsdk:"firewall_id"`
 	Filters    []client.FilterModel `tfsdk:"filter"`
 
 	Rules []NetworkFirewallRuleListItemModel `tfsdk:"rules"`
@@ -48,7 +48,7 @@ func (d *NetworkFirewallRuleListDataSource) Metadata(_ context.Context, req data
 func (d *NetworkFirewallRuleListDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Lists network firewall rules for a firewall from the VayuCloud action-state API.",
-		MarkdownDescription: "Lists network firewall rules for a firewall.\n\nThis data source calls the action-state API with `module=firewallRule` and `action=list`. Each rule in `rules` exposes the same fields as [`vayucloud_network_firewall_rule`](network_firewall_rule.md) read.\n\nOptionally, use `filter` blocks to narrow results client-side.",
+		MarkdownDescription: "Lists network firewall rules for a firewall.\n\nThis data source calls `GET /network_operations/list-firewallrule-state/{firewallId}`. Each rule in `rules` exposes the same fields as [`vayucloud_network_firewall_rule`](network_firewall_rule.md) read.\n\nOptionally, use `filter` blocks to narrow results client-side.",
 
 		Blocks: map[string]schema.Block{
 			"filter": client.FilterBlockSchema(),

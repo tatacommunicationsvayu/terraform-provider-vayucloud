@@ -51,7 +51,7 @@ type S3DomainResourceModel struct {
 	EndpointID   types.Int64 `tfsdk:"endpoint_id"`
 
 	// Required user inputs
-	DomainName types.String `tfsdk:"domain_name"`
+	DomainName   types.String  `tfsdk:"domain_name"`
 	Quota        types.Float64 `tfsdk:"quota"`
 	StorageClass types.String  `tfsdk:"storage_class"`
 	Variant      types.String  `tfsdk:"variant"`
@@ -100,8 +100,8 @@ func (r *S3DomainResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				},
 			},
 			"audit_id": schema.StringAttribute{
-				Description:         "The audit ID from the creation response.",
-				MarkdownDescription: "The audit ID from the creation response.",
+				Description:         "The audit ID from the latest async operation (create or quota update).",
+				MarkdownDescription: "The audit ID from the latest async operation (create or quota update).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -374,6 +374,13 @@ func (r *S3DomainResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		return
 	}
 
+	var state S3DomainResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	markAuditUnknownIfQuotaChanged(&plan, &state)
+
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
 }
 
@@ -604,7 +611,7 @@ func (r *S3DomainResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	quotaChanged := plan.Quota.ValueFloat64() != state.Quota.ValueFloat64()
+	quotaChanged := s3DomainQuotasDiffer(plan.Quota, state.Quota)
 
 	if quotaChanged {
 		newQuota := plan.Quota.ValueFloat64()
@@ -647,25 +654,7 @@ func (r *S3DomainResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	// Action-state read does not populate audit_id / status; keep values from the plan or last state
-	if out.AuditID.IsUnknown() || out.AuditID.IsNull() {
-		out.AuditID = state.AuditID
-	}
-	if out.Status.IsUnknown() || out.Status.IsNull() {
-		out.Status = state.Status
-	}
-	if out.DomainNameFQDN.IsUnknown() || out.DomainNameFQDN.IsNull() {
-		out.DomainNameFQDN = state.DomainNameFQDN
-	}
-	if out.QuotaUnit.IsUnknown() || out.QuotaUnit.IsNull() {
-		out.QuotaUnit = state.QuotaUnit
-	}
-	if out.DomainAccessIP.IsUnknown() {
-		out.DomainAccessIP = state.DomainAccessIP
-	}
-	if out.DomainAccessPublicIP.IsUnknown() {
-		out.DomainAccessPublicIP = state.DomainAccessPublicIP
-	}
+	preserveS3DomainComputedAfterRefresh(&out, &state)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &out)...)
 }
@@ -732,6 +721,47 @@ func (r *S3DomainResource) ensureEngagementEndpointFromFirewall(ctx context.Cont
 	data.EngagementID = types.Int64Value(engagementID)
 	data.EndpointID = types.Int64Value(endpointID)
 	return d
+}
+
+// markAuditUnknownIfQuotaChanged ensures Terraform does not retain the prior
+// audit ID in the plan when a quota update will create a new audit operation.
+func markAuditUnknownIfQuotaChanged(plan, state *S3DomainResourceModel) {
+	if s3DomainQuotasDiffer(plan.Quota, state.Quota) {
+		plan.AuditID = types.StringUnknown()
+	}
+}
+
+// s3DomainQuotasDiffer compares known quota values without treating unknown or
+// null values as an actionable update.
+func s3DomainQuotasDiffer(planQuota, stateQuota types.Float64) bool {
+	if planQuota.IsNull() || planQuota.IsUnknown() ||
+		stateQuota.IsNull() || stateQuota.IsUnknown() {
+		return false
+	}
+	return planQuota.ValueFloat64() != stateQuota.ValueFloat64()
+}
+
+// preserveS3DomainComputedAfterRefresh keeps computed values that are not
+// returned by the action-state read response.
+func preserveS3DomainComputedAfterRefresh(out, state *S3DomainResourceModel) {
+	if out.AuditID.IsUnknown() || out.AuditID.IsNull() {
+		out.AuditID = state.AuditID
+	}
+	if out.Status.IsUnknown() || out.Status.IsNull() {
+		out.Status = state.Status
+	}
+	if out.DomainNameFQDN.IsUnknown() || out.DomainNameFQDN.IsNull() {
+		out.DomainNameFQDN = state.DomainNameFQDN
+	}
+	if out.QuotaUnit.IsUnknown() || out.QuotaUnit.IsNull() {
+		out.QuotaUnit = state.QuotaUnit
+	}
+	if out.DomainAccessIP.IsUnknown() {
+		out.DomainAccessIP = state.DomainAccessIP
+	}
+	if out.DomainAccessPublicIP.IsUnknown() {
+		out.DomainAccessPublicIP = state.DomainAccessPublicIP
+	}
 }
 
 // refreshStateFromActionState calls action-state read and maps the payload onto data.

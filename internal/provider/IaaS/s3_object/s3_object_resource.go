@@ -290,11 +290,15 @@ func (r *S3ObjectResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	}
 
 	// A re-upload changes API-derived metadata; mark unknown in plan so apply does not
-	// fail with "inconsistent result after apply" for etag/size/last_modified.
+	// fail with "inconsistent result after apply" (UseStateForUnknown would otherwise
+	// keep the previous etag/audit_id/etc. while apply writes new values).
 	if shouldReupload(plan, state) {
 		plan.ETag = types.StringUnknown()
 		plan.Size = types.Int64Unknown()
 		plan.LastModified = types.StringUnknown()
+		plan.AuditID = types.StringUnknown()
+		plan.Prefix = types.StringUnknown()
+		plan.FileName = types.StringUnknown()
 	}
 
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)

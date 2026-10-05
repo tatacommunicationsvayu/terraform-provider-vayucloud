@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
 // Ensure provider-defined types fully satisfy framework interfaces.
@@ -86,7 +85,7 @@ func (d *NetworkZoneDataSource) Metadata(ctx context.Context, req datasource.Met
 func (d *NetworkZoneDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves details of a network zone from the VayuCloud API.",
-		MarkdownDescription: "Retrieves details of a network zone from the VayuCloud API.\n\nThis data source calls the action-state API with `module=zone` and `action=read` to return the current state of a network zone.",
+		MarkdownDescription: "Retrieves details of a network zone from the VayuCloud API.\n\nThis data source calls `GET /network/zone-state/{zoneId}` to return the current state of a network zone.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -200,11 +199,7 @@ func (d *NetworkZoneDataSource) Read(ctx context.Context, req datasource.ReadReq
 		"network_zone_id": data.NetworkZoneID.ValueString(),
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId": data.NetworkZoneID.ValueString(),
-	}
-
-	actionStateResponse, err := common.UpdateActionState(ctx, d.client, "zone", "read", actionStateBody)
+	actionStateResponse, err := ReadNetworkZoneState(d.client, ctx, data.NetworkZoneID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Network Zone",

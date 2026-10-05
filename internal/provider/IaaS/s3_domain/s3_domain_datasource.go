@@ -58,7 +58,7 @@ func (d *S3DomainDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 	resp.Schema = schema.Schema{
 		Description: "Retrieves details of an S3 domain from the VayuCloud API.",
 		MarkdownDescription: "Retrieves details of an S3 domain from the VayuCloud API.\n\n" +
-			"This data source calls the action-state API with `module=domain` and `action=read`. " +
+			"This data source calls `POST /ics-operations/domain-state/{domainId}`. " +
 			"`engagement_id` and `firewall_id` are required on the read request.",
 
 		Attributes: map[string]schema.Attribute{

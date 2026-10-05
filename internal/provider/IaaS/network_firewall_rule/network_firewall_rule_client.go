@@ -18,7 +18,12 @@ import (
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
-const actionStateModuleFirewallRules = "firewallRule"
+const (
+	actionStateModuleFirewallRules      = "firewallRule"
+	actionStateActionFirewallRuleCreate = "create"
+	actionStateActionFirewallRuleUpdate = "update"
+	actionStateActionFirewallRuleDelete = "delete"
+)
 
 var scheduleDateTimeAPIRegex = regexp.MustCompile(`^\d{1,2}:\d{2}\s+(\d{4})/(\d{2})/(\d{2})$`)
 var expandedPortServiceRegex = regexp.MustCompile(`^(?i)(tcp|udp)_\d+$`)
@@ -30,12 +35,12 @@ func normalizeScheduleDateForState(value string) string {
 		return ""
 	}
 	matched, err := regexp.MatchString(`^\d{4}-\d{2}-\d{2}$`, value)
- 	if err != nil {
- 		return ""
- 	}
- 	if matched {
- 		return value
- 	}
+	if err != nil {
+		return ""
+	}
+	if matched {
+		return value
+	}
 	if m := scheduleDateTimeAPIRegex.FindStringSubmatch(value); len(m) == 4 {
 		return fmt.Sprintf("%s-%s-%s", m[1], m[2], m[3])
 	}
@@ -259,38 +264,65 @@ func DeleteNetworkFirewallRule(c *client.Client, ctx context.Context, firewallID
 	return &result, nil
 }
 
-// ReadNetworkFirewallRule calls the FirewallRules action-state read API.
+// ReadNetworkFirewallRule retrieves the current firewall rule state.
+//
+// GET {NetworkOperationsPath}/firewallrule-state/{firewallId}/{ruleId}
+// Returns the same response envelope as the legacy action-state read API (module=firewallRule, action=read).
 func ReadNetworkFirewallRule(c *client.Client, ctx context.Context, firewallID int64, ruleID string) (*common.ActionStateResponse, error) {
-	actionStateBody := map[string]any{
-		"resourceId": fmt.Sprintf("%d", firewallID),
-		"ruleId":     ruleID,
+	tflog.Debug(ctx, "Reading network firewall rule state", map[string]any{
+		"firewall_id": firewallID,
+		"rule_id":     ruleID,
+	})
+
+	path := fmt.Sprintf("%s/firewallrule-state/%d/%s", common.NetworkOperationsPath, firewallID, ruleID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read network firewall rule state: %w", err)
 	}
 
-	return common.UpdateActionState(ctx, c, actionStateModuleFirewallRules, "read", actionStateBody)
+	tflog.Debug(ctx, "Network firewall rule state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var result common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse network firewall rule state response: %w", err)
+	}
+
+	return &result, nil
 }
 
-// ListNetworkFirewallRules calls the FirewallRules action-state list API for a firewall.
+// ListNetworkFirewallRules retrieves all firewall rules for a firewall.
+//
+// GET {NetworkOperationsPath}/list-firewallrule-state/{firewallId}
+// Returns the same response envelope as the legacy action-state list API (module=firewallRule, action=list).
 func ListNetworkFirewallRules(c *client.Client, ctx context.Context, firewallID int64) ([]map[string]interface{}, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing network firewall rules", map[string]any{
 		"firewall_id": firewallID,
 	})
 
-	body := map[string]any{
-		"resourceId": fmt.Sprintf("%d", firewallID),
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, actionStateModuleFirewallRules, "list", body)
+	path := fmt.Sprintf("%s/firewallrules-state/%d", common.NetworkOperationsPath, firewallID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list network firewall rules: %w", err)
 	}
 
+	tflog.Debug(ctx, "List network firewall rules response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse network firewall rule list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []map[string]interface{}{}, resp, nil
+		return []map[string]interface{}{}, &resp, nil
 	}
 
 	var items []map[string]interface{}
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse network firewall rule list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse network firewall rule list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Network firewall rules listed successfully", map[string]any{
@@ -298,7 +330,7 @@ func ListNetworkFirewallRules(c *client.Client, ctx context.Context, firewallID 
 		"firewall_id": firewallID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
 }
 
 // FirewallRuleActionState is normalized rule fields from action-state read/list payloads.
@@ -382,7 +414,7 @@ func CreateNetworkFirewallRuleAndWait(c *client.Client, ctx context.Context, req
 		return nil, messages, err
 	}
 
-	auditLog, err := c.WaitForAuditCompletion(ctx, createResp.Data.Audit.AuditID, "read", actionStateModuleFirewallRules, firewallRuleAuditRequestBody(req.FirewallID))
+	auditLog, err := c.WaitForAuditCompletion(ctx, createResp.Data.Audit.AuditID, actionStateActionFirewallRuleCreate, actionStateModuleFirewallRules, firewallRuleAuditRequestBody(req.FirewallID))
 	if err != nil {
 		return nil, messages, fmt.Errorf("network firewall rule creation failed: %w", err)
 	}
@@ -402,7 +434,7 @@ func UpdateNetworkFirewallRuleAndWait(c *client.Client, ctx context.Context, req
 		return nil, messages, err
 	}
 
-	auditLog, err := c.WaitForAuditCompletion(ctx, updateResp.Data.Audit.AuditID, "read", actionStateModuleFirewallRules, firewallRuleAuditRequestBody(req.FirewallID))
+	auditLog, err := c.WaitForAuditCompletion(ctx, updateResp.Data.Audit.AuditID, actionStateActionFirewallRuleUpdate, actionStateModuleFirewallRules, firewallRuleAuditRequestBody(req.FirewallID))
 	if err != nil {
 		return nil, messages, fmt.Errorf("network firewall rule update failed: %w", err)
 	}
@@ -417,7 +449,7 @@ func DeleteNetworkFirewallRuleAndWait(c *client.Client, ctx context.Context, fir
 		return nil, err
 	}
 
-	auditLog, err := c.WaitForAuditCompletion(ctx, deleteResp.Data.Audit.AuditID, "delete", actionStateModuleFirewallRules, firewallRuleAuditRequestBody(firewallID))
+	auditLog, err := c.WaitForAuditCompletion(ctx, deleteResp.Data.Audit.AuditID, actionStateActionFirewallRuleDelete, actionStateModuleFirewallRules, firewallRuleAuditRequestBody(firewallID))
 	if err != nil {
 		return nil, fmt.Errorf("network firewall rule deletion failed: %w", err)
 	}

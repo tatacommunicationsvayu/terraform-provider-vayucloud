@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/resource_group_business_unit"
 )
@@ -289,13 +288,7 @@ func (r *ResourceGroupEnvironmentResource) Read(ctx context.Context, req resourc
 		"audit_id": data.AuditID.ValueString(),
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId":   data.ID.ValueString(),
-		"resourceType": "ENV",
-	}
-
-	// Call action-state API to get the latest firewall data
-	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "engagementComponents", "read", actionStateBody)
+	actionStateResponse, err := ReadEnvironmentState(r.client, ctx, data.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Resource Group Environment",

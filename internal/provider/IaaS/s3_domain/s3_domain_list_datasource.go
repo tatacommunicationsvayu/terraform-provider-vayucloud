@@ -63,7 +63,7 @@ func (d *S3DomainListDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 	resp.Schema = schema.Schema{
 		Description: "Retrieves the list of S3 domains for an IPC engagement and endpoint.",
 		MarkdownDescription: "Retrieves the list of S3 domains for an IPC engagement and endpoint.\n\n" +
-			"This data source calls the action-state API with `module=domain` and `action=list`. " +
+			"This data source calls `POST /ics-operations/list-domain-state/{engagementId}/{endpointId}`. " +
 			"The backend resolves IPC to ICS engagement internally.\n\n" +
 			"Optionally set `firewall_id` to include access IPs in list results. " +
 			"Use `filter` blocks to narrow results client-side.",

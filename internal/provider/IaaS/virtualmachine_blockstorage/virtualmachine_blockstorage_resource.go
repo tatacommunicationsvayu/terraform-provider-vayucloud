@@ -262,23 +262,12 @@ func (r *VirtualMachineBlockStorageResource) Create(ctx context.Context, req res
 		return
 	}
 
-	if auditLog.ResourceID.String() != "" {
-		volumeID, err := strconv.ParseInt(strings.TrimSpace(auditLog.ResourceID.String()), 10, 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error Parsing Volume ID",
-				"Could not parse volume ID: "+err.Error(),
-			)
-			return
-		}
-		plan.ID = types.Int64Value(volumeID)
-	} else {
-		resp.Diagnostics.AddError(
-			"Error Creating Virtual Machine",
-			"Could not create virtual machine: ResourceID is empty",
-		)
+	volumeID, err := FindNonRootVolumeIDByNameAndSize(r.client, ctx, instanceID, attachReq.Name, attachReq.Size)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Resolving Volume ID", err.Error())
 		return
 	}
+	plan.ID = types.Int64Value(volumeID)
 
 	plan.AuditID = types.StringValue(auditLog.AuditID)
 	plan.Status = types.StringValue(auditLog.Status)
@@ -317,7 +306,7 @@ func (r *VirtualMachineBlockStorageResource) Read(ctx context.Context, req resou
 	if err != nil {
 		resp.Diagnostics.AddWarning(
 			"Volume Not Found",
-			fmt.Sprintf("Could not read volume %d on instance %s: %s", volumeID, instanceID, err.Error()),
+			fmt.Sprintf("Could not read volume %d on instance %d: %s", volumeID, instanceID, err.Error()),
 		)
 		resp.State.RemoveResource(ctx)
 		return

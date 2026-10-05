@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 )
 
@@ -183,8 +182,12 @@ func (r *ResourceGroupBusinessUnitResource) ModifyPlan(ctx context.Context, req 
 		}
 	}
 
-	// Create: no prior state — computed audit_id/status already unknown.
+	// Create: no prior state — optional users may be unknown until apply resolves it.
 	if req.State.Raw.IsNull() {
+		if plan.Users.IsUnknown() {
+			plan.Users = types.ListNull(types.StringType)
+			resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+		}
 		return
 	}
 
@@ -202,36 +205,9 @@ func (r *ResourceGroupBusinessUnitResource) ModifyPlan(ctx context.Context, req 
 		return
 	}
 
-	planDirty := false
-
-	// Normalize users in the plan (provider username is always attached on create/update).
-	if !plan.Users.IsUnknown() {
-		var users []string
-		if !plan.Users.IsNull() {
-			resp.Diagnostics.Append(plan.Users.ElementsAs(ctx, &users, false)...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		}
-		normalized := ensureProviderUserInList(r.client, users)
-		usersList, diags := types.ListValueFrom(ctx, types.StringType, normalized)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if !plan.Users.Equal(usersList) {
-			plan.Users = usersList
-			planDirty = true
-		}
-	}
-
 	// New audit id is issued on update; mark unknown so apply may differ from prior state.
 	if nameChanged || usersChanged {
 		plan.AuditID = types.StringUnknown()
-		planDirty = true
-	}
-
-	if planDirty {
 		resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 	}
 }
@@ -245,6 +221,46 @@ func ensureProviderUserInList(c *client.Client, users []string) []string {
 		}
 	}
 	return append(users, providerUsername)
+}
+
+// usersConfiguredFromAPI returns users for Terraform state by omitting the implicit provider user.
+func usersConfiguredFromAPI(c *client.Client, raw interface{}) ([]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	var apiUsers []string
+	switch v := raw.(type) {
+	case []interface{}:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				apiUsers = append(apiUsers, s)
+			} else {
+				return nil, fmt.Errorf("unexpected user element type %T", item)
+			}
+		}
+	case []string:
+		apiUsers = v
+	default:
+		return nil, fmt.Errorf("unexpected users type %T", raw)
+	}
+
+	providerUsername := c.GetUsername()
+	configured := make([]string, 0, len(apiUsers))
+	for _, u := range apiUsers {
+		if u != providerUsername {
+			configured = append(configured, u)
+		}
+	}
+	return configured, nil
+}
+
+// knownUsersForState returns a known users list for state from plan/config (null when omitted).
+func knownUsersForState(configured types.List) types.List {
+	if configured.IsUnknown() || configured.IsNull() {
+		return types.ListNull(types.StringType)
+	}
+	return configured
 }
 
 // businessUnitUsersChanged reports whether planned users differ from state after
@@ -322,9 +338,8 @@ func (r *ResourceGroupBusinessUnitResource) Create(ctx context.Context, req reso
 	var users []string
 	if !data.Users.IsNull() && !data.Users.IsUnknown() {
 		resp.Diagnostics.Append(data.Users.ElementsAs(ctx, &users, false)...)
-	}else{
-		users = ensureProviderUserInList(r.client, []string{})
 	}
+	users = ensureProviderUserInList(r.client, users)
 
 	// Build the create request
 	createReq := &ResourceGroupBusinessUnitCreateRequest{
@@ -358,13 +373,7 @@ func (r *ResourceGroupBusinessUnitResource) Create(ctx context.Context, req reso
 	}
 	data.AuditID = types.StringValue(auditLog.AuditID)
 	data.Status = types.StringValue(auditLog.Status)
-
-	usersList, diags := types.ListValueFrom(ctx, types.StringType, users)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	data.Users = usersList
+	data.Users = knownUsersForState(data.Users)
 
 	tflog.Info(ctx, "Resource group business unit created successfully", map[string]any{
 		"id":       data.ID.ValueString(),
@@ -392,13 +401,7 @@ func (r *ResourceGroupBusinessUnitResource) Read(ctx context.Context, req resour
 		"audit_id": data.AuditID.ValueString(),
 	})
 
-	actionStateBody := map[string]any{
-		"resourceId":   data.ID.ValueString(),
-		"resourceType": "BU",
-	}
-
-	// Call action-state API to get the latest firewall data
-	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "engagementComponents", "read", actionStateBody)
+	actionStateResponse, err := ReadBusinessUnitState(r.client, ctx, data.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Engagement Components",
@@ -431,12 +434,24 @@ func (r *ResourceGroupBusinessUnitResource) Read(ctx context.Context, req resour
 	data.BusinessUnit = types.StringValue(responseMap["business_unit"].(string))
 	data.Status = types.StringValue(responseMap["status"].(string))
 
-	usersList, diags := types.ListValueFrom(ctx, types.StringType, responseMap["users"])
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	configuredUsers, err := usersConfiguredFromAPI(r.client, responseMap["users"])
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Parsing Users",
+			err.Error(),
+		)
 		return
 	}
-	data.Users = usersList
+	if len(configuredUsers) == 0 {
+		data.Users = types.ListNull(types.StringType)
+	} else {
+		usersList, diags := types.ListValueFrom(ctx, types.StringType, configuredUsers)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Users = usersList
+	}
 
 	tflog.Info(ctx, "Business unit read successfully", map[string]any{
 		"id":       data.ID.ValueString(),
@@ -522,14 +537,6 @@ func (r *ResourceGroupBusinessUnitResource) Update(ctx context.Context, req reso
 		if auditLog.AuditID != "" {
 			plan.AuditID = types.StringValue(auditLog.AuditID)
 		}
-
-		// Keep platform status from plan/state (e.g. ACTIVE). Do not use audit "Completed".
-		usersList, diags := types.ListValueFrom(ctx, types.StringType, users)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Users = usersList
 
 		tflog.Info(ctx, "Resource group business unit updated successfully", map[string]any{
 			"id":            plan.ID.ValueString(),

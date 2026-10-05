@@ -21,7 +21,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/network_firewall"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/resource_group_environment"
 )
@@ -438,19 +437,15 @@ func (r *NetworkZoneResource) Read(ctx context.Context, req resource.ReadRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// refreshZoneState reads the zone via action-state and updates computed fields (cidr, etc.).
+// refreshZoneState reads the zone state and updates computed fields (cidr, etc.).
 func (r *NetworkZoneResource) refreshZoneState(ctx context.Context, data *NetworkZoneResourceModel) error {
-	actionStateBody := map[string]any{
-		"resourceId": data.ID.ValueString(),
-	}
-
-	actionStateResponse, err := common.UpdateActionState(ctx, r.client, "zone", "read", actionStateBody)
+	actionStateResponse, err := ReadNetworkZoneState(r.client, ctx, data.ID.ValueString())
 	if err != nil {
 		return err
 	}
 
 	if len(actionStateResponse.Data) == 0 {
-		tflog.Warn(ctx, "Empty zone action-state response; keeping existing state values", map[string]any{
+		tflog.Warn(ctx, "Empty zone state response; keeping existing state values", map[string]any{
 			"id": data.ID.ValueString(),
 		})
 		return nil
@@ -461,7 +456,7 @@ func (r *NetworkZoneResource) refreshZoneState(ctx context.Context, data *Networ
 		return fmt.Errorf("could not unmarshal response data: %w; response: %s", err, string(actionStateResponse.Data))
 	}
 
-	tflog.Debug(ctx, "Zone action-state response", map[string]any{
+	tflog.Debug(ctx, "Zone state response", map[string]any{
 		"response_map": responseMap,
 	})
 

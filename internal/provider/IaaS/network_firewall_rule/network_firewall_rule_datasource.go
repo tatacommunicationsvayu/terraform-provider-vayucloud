@@ -143,8 +143,8 @@ func (d *NetworkFirewallRuleDataSource) Schema(_ context.Context, _ datasource.S
 	}
 
 	resp.Schema = schema.Schema{
-		Description:         "Reads a network firewall rule from the VayuCloud action-state API.",
-		MarkdownDescription: "Reads a network firewall rule for a firewall and rule ID.\n\nThis data source calls the action-state API with `module=firewallRule` and `action=read` — the same flow as the [`vayucloud_network_firewall_rule`](../resources/network_firewall_rule.md) resource read operation.",
+		Description:         "Reads a network firewall rule from the VayuCloud API.",
+		MarkdownDescription: "Reads a network firewall rule for a firewall and rule ID.\n\nThis data source calls `GET /network_operations/firewallrule-state/{firewallId}/{ruleId}` — the same flow as the [`vayucloud_network_firewall_rule`](../resources/network_firewall_rule.md) resource read operation.",
 		Attributes:          attrs,
 	}
 }

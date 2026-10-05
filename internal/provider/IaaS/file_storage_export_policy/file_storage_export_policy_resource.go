@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -66,7 +66,7 @@ func (r *FileStorageExportPolicyResource) Metadata(ctx context.Context, req reso
 func (r *FileStorageExportPolicyResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Manages a file storage export policy (NAS client IP allowed on a volume).",
-		MarkdownDescription: "Attaches and detaches a client IP on a NAS volume via `POST .../nas/attachClient` and `DELETE .../nas/volumes/{volumeId}/clients/{clientIp}`. Requires `file_storage_volume_id` (nasVolCi), `name` (volume name), and `client_ip`. Optional `engagement_id` and `file_server_id` enable drift detection on refresh via `fetchVolumeDetails` (client removed from state when `client_ip` is no longer attached on the platform). Use multiple resources (or `for_each`) for several client IPs on the same volume; `id` is `{file_storage_volume_id}/{client_ip}`.",
+		MarkdownDescription: "Attaches and detaches a client IP on a NAS volume via `POST .../nas/attachClient` and `DELETE .../nas/volumes/{volumeId}/client?clientIp={clientIp}`. Requires `file_storage_volume_id` (nasVolCi), `name` (volume name), and `client_ip`. Optional `engagement_id` and `file_server_id` enable drift detection on refresh via `fetchVolumeDetails` (client removed from state when `client_ip` is no longer attached on the platform). Use multiple resources (or `for_each`) for several client IPs on the same volume; `id` is `{file_storage_volume_id}/{client_ip}`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Synthetic id `{file_storage_volume_id}/{client_ip}` so multiple export policies can target the same volume with different client IPs.",

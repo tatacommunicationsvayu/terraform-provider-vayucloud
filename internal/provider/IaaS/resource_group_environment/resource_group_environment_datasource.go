@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
 // Ensure provider-defined types fully satisfy framework interfaces.
@@ -62,7 +61,7 @@ func (d *ResourceGroupEnvironmentDataSource) Metadata(ctx context.Context, req d
 func (d *ResourceGroupEnvironmentDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves details of a resource group environment from the VayuCloud API.",
-		MarkdownDescription: "Retrieves details of a resource group environment from the VayuCloud API.\n\nThis data source calls the action-state API with `module=engagementComponents`, `action=read`, and `resourceType=ENV` to return the current state of a resource group environment.",
+		MarkdownDescription: "Retrieves details of a resource group environment from the VayuCloud API.\n\nThis data source calls `GET /securityservice/environment-state/{environmentId}` to return the current state of a resource group environment.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -137,14 +136,7 @@ func (d *ResourceGroupEnvironmentDataSource) Read(ctx context.Context, req datas
 		"resource_group_environment_id": data.ResourceGroupEnvironmentID.ValueString(),
 	})
 
-	// Build the request body (same as resource Read)
-	actionStateBody := map[string]any{
-		"resourceId":   data.ResourceGroupEnvironmentID.ValueString(),
-		"resourceType": "ENV",
-	}
-
-	// Call action-state API to get the latest environment data
-	actionStateResponse, err := common.UpdateActionState(ctx, d.client, "engagementComponents", "read", actionStateBody)
+	actionStateResponse, err := ReadEnvironmentState(d.client, ctx, data.ResourceGroupEnvironmentID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Resource Group Environment",

@@ -64,7 +64,7 @@ func (d *NetworkZoneListDataSource) Metadata(ctx context.Context, req datasource
 func (d *NetworkZoneListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves the list of network zones from the VayuCloud API for a given environment.",
-		MarkdownDescription: "Retrieves the list of network zones from the VayuCloud API for a given environment.\n\nThis data source calls the action-state API with `module=zone` and `action=list`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
+		MarkdownDescription: "Retrieves the list of network zones from the VayuCloud API for a given environment.\n\nThis data source calls `GET /network/list-zone-state/{environmentId}`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
 
 		Blocks: map[string]schema.Block{
 			"filter": client.FilterBlockSchema(),

@@ -272,29 +272,37 @@ type NetworkZoneListItem struct {
 	IPv6CIDR      string  `json:"ipv6_cidr"`
 }
 
-// ListNetworkZones retrieves all network zones for a given environment
-// via the action-state API with module=zone&action=list.
+// ListNetworkZones retrieves all network zones for a given environment.
+//
+// GET {NetworkServicePath}/list-zone-state/{environmentId}
+// Returns the same response envelope as the legacy action-state list API (module=zone, action=list).
 func ListNetworkZones(c *client.Client, ctx context.Context, environmentID int64) ([]NetworkZoneListItem, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing network zones", map[string]any{
 		"environment_id": environmentID,
 	})
 
-	body := map[string]any{
-		"resourceId": fmt.Sprintf("%d", environmentID),
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "zone", "list", body)
+	path := fmt.Sprintf("%s/zones-state/%d", common.NetworkServicePath, environmentID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list network zones: %w", err)
 	}
 
+	tflog.Debug(ctx, "List network zones response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse network zone list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []NetworkZoneListItem{}, resp, nil
+		return []NetworkZoneListItem{}, &resp, nil
 	}
 
 	var items []NetworkZoneListItem
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse network zone list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse network zone list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Network zones listed successfully", map[string]any{
@@ -302,15 +310,38 @@ func ListNetworkZones(c *client.Client, ctx context.Context, environmentID int64
 		"environment_id": environmentID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
+}
+
+// ReadNetworkZoneState retrieves the current network zone state.
+//
+// GET {NetworkServicePath}/zone-state/{zoneId}
+// Returns the same response envelope as the legacy action-state read API (module=zone, action=read).
+func ReadNetworkZoneState(c *client.Client, ctx context.Context, zoneID string) (*common.ActionStateResponse, error) {
+	tflog.Debug(ctx, "Reading network zone state", map[string]any{
+		"zone_id": zoneID,
+	})
+
+	path := fmt.Sprintf("%s/zone-state/%s", common.NetworkServicePath, zoneID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read network zone state: %w", err)
+	}
+
+	tflog.Debug(ctx, "Network zone state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var result common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse network zone state response: %w", err)
+	}
+
+	return &result, nil
 }
 
 func readNetworkZone(ctx context.Context, c *client.Client, networkZoneID int64) (map[string]interface{}, error) {
-	actionStateBody := map[string]any{
-		"resourceId": fmt.Sprintf("%d", networkZoneID),
-	}
-
-	actionStateResponse, err := common.UpdateActionState(ctx, c, "zone", "read", actionStateBody)
+	actionStateResponse, err := ReadNetworkZoneState(c, ctx, fmt.Sprintf("%d", networkZoneID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read network zone %d: %w", networkZoneID, err)
 	}

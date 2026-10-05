@@ -66,7 +66,7 @@ func (d *NetworkFirewallListDataSource) Metadata(ctx context.Context, req dataso
 func (d *NetworkFirewallListDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves the list of network firewalls from the VayuCloud API for a given engagement and endpoint.",
-		MarkdownDescription: "Retrieves the list of network firewalls from the VayuCloud API for a given engagement and endpoint.\n\nThis data source calls the action-state API with `module=firewall` and `action=list`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
+		MarkdownDescription: "Retrieves the list of network firewalls from the VayuCloud API for a given engagement and endpoint.\n\nThis data source calls `GET /network_operations/list-firewall-state/{engagementId}/{endpointId}`.\n\nOptionally, use `filter` blocks to narrow down results by field values.",
 
 		Blocks: map[string]schema.Block{
 			"filter": client.FilterBlockSchema(),

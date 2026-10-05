@@ -223,30 +223,37 @@ type EnvironmentListItem struct {
 	Status         string  `json:"status"`
 }
 
-// ListEnvironments retrieves all environments for a given business unit
-// via the action-state API with module=engagementComponents&action=list.
+// ListEnvironments retrieves all environments for a given business unit.
+//
+// GET {SecurityServicePath}/list-environment-state/{businessUnitId}
+// Returns the same response envelope as the legacy action-state list API (module=engagementComponents, action=list).
 func ListEnvironments(c *client.Client, ctx context.Context, businessUnitID int64) ([]EnvironmentListItem, *common.ActionStateResponse, error) {
 	tflog.Debug(ctx, "Listing environments", map[string]any{
 		"business_unit_id": businessUnitID,
 	})
 
-	body := map[string]any{
-		"resourceId":   fmt.Sprintf("%d", businessUnitID),
-		"resourceType": "ENV",
-	}
-
-	resp, err := common.UpdateActionState(ctx, c, "engagementComponents", "list", body)
+	path := fmt.Sprintf("%s/environments-state/%d", common.SecurityServicePath, businessUnitID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
+	tflog.Debug(ctx, "List environments response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var resp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse environment list response: %w", err)
+	}
+
 	if len(resp.Data) == 0 {
-		return []EnvironmentListItem{}, resp, nil
+		return []EnvironmentListItem{}, &resp, nil
 	}
 
 	var items []EnvironmentListItem
 	if err := json.Unmarshal(resp.Data, &items); err != nil {
-		return nil, resp, fmt.Errorf("failed to parse environment list response: %w", err)
+		return nil, &resp, fmt.Errorf("failed to parse environment list response: %w", err)
 	}
 
 	tflog.Info(ctx, "Environments listed successfully", map[string]any{
@@ -254,17 +261,39 @@ func ListEnvironments(c *client.Client, ctx context.Context, businessUnitID int6
 		"business_unit_id": businessUnitID,
 	})
 
-	return items, resp, nil
+	return items, &resp, nil
 }
 
-// getEnvironmentReadMap performs the engagementComponents read UpdateActionState call used by ValidateEnvironmentExists.
-func getEnvironmentReadMap(c *client.Client, ctx context.Context, environmentID int64) (map[string]interface{}, error) {
-	actionStateBody := map[string]any{
-		"resourceId":   fmt.Sprintf("%d", environmentID),
-		"resourceType": "ENV",
+// ReadEnvironmentState retrieves the current environment state.
+//
+// GET {SecurityServicePath}/environment-state/{environmentId}
+// Returns the same response envelope as the legacy action-state read API (module=engagementComponents, action=read).
+func ReadEnvironmentState(c *client.Client, ctx context.Context, environmentID string) (*common.ActionStateResponse, error) {
+	tflog.Debug(ctx, "Reading environment state", map[string]any{
+		"environment_id": environmentID,
+	})
+
+	path := fmt.Sprintf("%s/environment-state/%s", common.SecurityServicePath, environmentID)
+	respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read environment state: %w", err)
 	}
 
-	actionStateResponse, err := common.UpdateActionState(ctx, c, "engagementComponents", "read", actionStateBody)
+	tflog.Debug(ctx, "Environment state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var result common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse environment state response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// getEnvironmentReadMap reads environment state used by ValidateEnvironmentExists.
+func getEnvironmentReadMap(c *client.Client, ctx context.Context, environmentID int64) (map[string]interface{}, error) {
+	actionStateResponse, err := ReadEnvironmentState(c, ctx, fmt.Sprintf("%d", environmentID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate environment ID: %w", err)
 	}
@@ -333,7 +362,7 @@ func ValidateEnvironmentExists(c *client.Client, ctx context.Context, environmen
 	return nil
 }
 
-// ValidateEnvironmentExistsForFirewall uses the same engagementComponents read API as ValidateEnvironmentExists,
+// ValidateEnvironmentExistsForFirewall uses the same environment state API as ValidateEnvironmentExists,
 // then requires a firewall id in the response (string firewallId from API) matching firewallID from config/plan.
 func ValidateEnvironmentExistsForFirewall(c *client.Client, ctx context.Context, environmentID, firewallID int64) error {
 	tflog.Debug(ctx, "Validating environment exists for firewall", map[string]any{

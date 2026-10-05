@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
-	"github.com/tatacommunications/terraform-provider-vayucloud/internal/provider/IaaS/common"
 )
 
 // Ensure provider-defined types fully satisfy framework interfaces.
@@ -86,7 +85,7 @@ func (d *NetworkFirewallDataSource) Metadata(ctx context.Context, req datasource
 func (d *NetworkFirewallDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description:         "Retrieves details of a network firewall from the VayuCloud API.",
-		MarkdownDescription: "Retrieves details of a network firewall from the VayuCloud API.\n\nThis data source calls the action-state API with `module=firewall` and `action=read` to return the current state of a network firewall.",
+		MarkdownDescription: "Retrieves details of a network firewall from the VayuCloud API.\n\nThis data source calls `GET /network_operations/firewall-state/{firewallId}` to return the current state of a network firewall.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -206,13 +205,7 @@ func (d *NetworkFirewallDataSource) Read(ctx context.Context, req datasource.Rea
 		"network_firewall_id": data.NetworkFirewallID.ValueString(),
 	})
 
-	// Build the request body (same as resource Read)
-	actionStateBody := map[string]any{
-		"resourceId": data.NetworkFirewallID.ValueString(),
-	}
-
-	// Call action-state API to get the latest firewall data
-	actionStateResponse, err := common.UpdateActionState(ctx, d.client, "firewall", "read", actionStateBody)
+	stateResponse, err := ReadNetworkFirewallState(d.client, ctx, data.NetworkFirewallID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Network Firewall",
@@ -223,11 +216,11 @@ func (d *NetworkFirewallDataSource) Read(ctx context.Context, req datasource.Rea
 
 	// Map top-level API response fields
 	data.ID = types.StringValue(data.NetworkFirewallID.ValueString())
-	data.Status = types.StringValue(actionStateResponse.Status)
-	data.Message = types.StringValue(actionStateResponse.Message)
-	data.ResponseCode = types.Int64Value(int64(actionStateResponse.ResponseCode))
+	data.Status = types.StringValue(stateResponse.Status)
+	data.Message = types.StringValue(stateResponse.Message)
+	data.ResponseCode = types.Int64Value(int64(stateResponse.ResponseCode))
 	// Check if response data is empty
-	if len(actionStateResponse.Data) == 0 {
+	if len(stateResponse.Data) == 0 {
 		resp.Diagnostics.AddWarning(
 			"Empty Response Data",
 			"Could not read network firewall: response data is empty, keeping existing state",
@@ -240,10 +233,10 @@ func (d *NetworkFirewallDataSource) Read(ctx context.Context, req datasource.Rea
 	// Unmarshal the JSON response data into a map
 	// The API returns standard JSON types, not Terraform framework types
 	var responseMap map[string]interface{}
-	if err := json.Unmarshal(actionStateResponse.Data, &responseMap); err != nil {
+	if err := json.Unmarshal(stateResponse.Data, &responseMap); err != nil {
 		resp.Diagnostics.AddError(
 			"Error Unmarshalling Response Data",
-			fmt.Sprintf("Could not unmarshal response data: %s. Response: %s", err.Error(), string(actionStateResponse.Data)),
+			fmt.Sprintf("Could not unmarshal response data: %s. Response: %s", err.Error(), string(stateResponse.Data)),
 		)
 		return
 	}

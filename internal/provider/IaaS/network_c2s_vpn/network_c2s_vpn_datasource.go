@@ -60,7 +60,7 @@ func (d *NetworkC2SVPNDataSource) Metadata(ctx context.Context, req datasource.M
 
 func (d *NetworkC2SVPNDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description:         "Reads C2S VPN details for a firewall from the VayuCloud action-state API (module=c2svpn, action=read).",
+		Description:         "Reads C2S VPN details for a firewall from the VayuCloud API via GET /network_operations/vpn-state/{firewallId}.",
 		MarkdownDescription: "Reads C2S VPN details for a firewall. This uses the same `ReadC2SVPN` flow as the `vayucloud_network_c2s_vpn` resource read operation.",
 
 		Attributes: map[string]schema.Attribute{

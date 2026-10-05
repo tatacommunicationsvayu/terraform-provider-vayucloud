@@ -38,7 +38,6 @@ This document summarizes the managed resources and read-only data sources in the
 | `vayucloud_extend_nas_zone` | Extend NAS VLAN zone for vserver; destroy deconfigures only (sync API) | No | [Extend NAS zone](resources/extend_nas_zone.md) |
 | `vayucloud_s3_domain` | S3 (VCS) domain on firewall; long async create; quota update in place | Yes | [S3 domain](resources/s3_domain.md) |
 | `vayucloud_s3_bucket` | Bucket in domain; versioning in place; delete blocked when not empty | No | [S3 bucket](resources/s3_bucket.md) |
-| `vayucloud_s3_object` | Object upload (file, inline, or base64); body change re-uploads | No | [S3 object](resources/s3_object.md) |
 | `vayucloud_s3_user` | S3 user; blocked on AI_STANDARD domains; delete cascades tokens | No | [S3 user](resources/s3_user.md) |
 | `vayucloud_s3_token` | S3 access token; secret only at create; AI_STANDARD restrictions | No | [S3 token](resources/s3_token.md) |
 | `vayucloud_virtualmachine` | Virtual machine; disks, image, and flavor; pre-create validate at plan; in-place flavor resize and disk size updates | Yes | [Virtual machine](resources/virtualmachine.md) |
@@ -117,14 +116,23 @@ In VayuCloud, pieces stack **from the network inward**: each step needs what cam
 | 12 | *(Optional)* **Security groups** — `vayucloud_security_group` and `vayucloud_virtualmachine_security_group_association` |
 | 13 | *(Optional)* **Firewall rules** — `vayucloud_network_firewall_rule` for internet, zone, NAS, VCS, or load balancer traffic |
 | 14 | *(Optional)* **NAS storage** — file server → volume → export policy; optional NAS VLAN zone and extend NAS zone |
-| 15 | *(Optional)* **S3 (VCS)** — domain on firewall → bucket, user, token, objects |
+| 15 | *(Optional)* **S3 (VCS)** — domain on firewall → bucket, user, token |
 | 16 | *(Optional)* **VCS public access** — public IP on `domain_access_ip` plus `ill_to_vcs` firewall rule |
 
 **Using Terraform or OpenTofu**, the usual resource order matches the table: `vayucloud_network_firewall` → `vayucloud_resource_group_business_unit` → `vayucloud_resource_group_environment` → `vayucloud_network_zone` → `vayucloud_virtualmachine`; then optionally load balancer, SSL, virtual service, and public IP; `vayucloud_security_group` and `vayucloud_virtualmachine_security_group_association`; `vayucloud_network_firewall_rule` for access; NAS (`vayucloud_file_server`, `vayucloud_file_storage_volume`, `vayucloud_file_storage_export_policy`); VCS (`vayucloud_s3_domain` and children). See `examples/IaaS/complete/fw_vm_nas_complete/` for a combined example.
 
 **Already provisioned in the cloud?** You can **look up** existing firewalls, zones, or VMs with **data sources** instead of creating new **resources**—your configuration only needs to respect the same logical order when something depends on something else.
 
-For a focused HAProxy walkthrough (SSL, virtual services, pool members, VIP pinning, public IP), see the [Load balancer guide](guides/load_balancer.md). Example configurations live under `examples/IaaS/resources/`, `examples/IaaS/complete/lb_and_vs/`, and `examples/IaaS/complete/fw_vm_nas_complete/` (firewall + VM + NAS + VCS).
+For focused walkthroughs by module, see:
+
+| Guide | Topics |
+|-------|--------|
+| [Load balancer](guides/load_balancer.md) | HAProxy enable, SSL, virtual services, VIP pinning, public IP |
+| [Firewall to VM](guides/firewall_to_vm.md) | Firewall, zone, VM, firewall rules, C2S VPN, security groups |
+| [NAS operations](guides/nas_operations.md) | File server, volume, export policy, extend NAS zone, zone↔NAS rules |
+| [S3 operations](guides/s3_operations.md) | VCS domain, bucket, user, token, public access |
+
+Example configurations live under `examples/IaaS/resources/`.
 
 See also the friendly walkthrough on the [VayuCloud provider](index.md) page.
 
@@ -155,7 +163,7 @@ These resources wait on audit completion when the API returns an audit identifie
 | `vayucloud_file_storage_export_policy` | Attach, detach |
 | `vayucloud_s3_domain` | Create, update (quota), delete |
 
-Synchronous resources (no audit polling): `vayucloud_extend_nas_zone`, `vayucloud_s3_bucket`, `vayucloud_s3_object`, `vayucloud_s3_user`, `vayucloud_s3_token`.
+Synchronous resources (no audit polling): `vayucloud_extend_nas_zone`, `vayucloud_s3_bucket`, `vayucloud_s3_user`, `vayucloud_s3_token`.
 
 The provider performs polling and status checks; no separate wait logic is required in configuration.
 
@@ -163,3 +171,6 @@ The provider performs polling and status checks; no separate wait logic is requi
 
 - [VayuCloud provider](index.md) — Authentication, installation, and provider arguments.
 - [Load balancer guide](guides/load_balancer.md) — HAProxy module end-to-end.
+- [Firewall to VM guide](guides/firewall_to_vm.md) — Perimeter to workload with rules, VPN, and security groups.
+- [NAS operations guide](guides/nas_operations.md) — NAS vserver through export and firewall rules.
+- [S3 operations guide](guides/s3_operations.md) — VCS domain through tokens and public access.

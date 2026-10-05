@@ -9,13 +9,14 @@ import "time"
 // API endpoint constants
 const (
 	// AuthURL is the authentication endpoint URL (POST JSON: email, password).
-	AuthURL = "https://api-uat.tatacommunications.com/v1/vayu/userdetail/getAuthToken"
+	AuthURL = "https://api.tatacommunications.com/v1/vayu/userdetail/getAuthToken"
 
 	// DefaultAuthTokenLifetime is used when the auth API does not return expires_in.
 	DefaultAuthTokenLifetime = 10 * time.Minute
 
 	// APIURL is the base URL for the API
-	APIURL = "https://api-uat.tatacommunications.com/v1/vayu/"
+	APIURL = "https://api.tatacommunications.com/v1/vayu/"
+
 	// DefaultTimeout is the default HTTP client timeout in seconds
 	DefaultTimeout = 120
 

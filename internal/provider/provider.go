@@ -145,25 +145,27 @@ func (p *VayuCloudProvider) ValidateConfig(ctx context.Context, req provider.Val
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	username := os.Getenv("VAYU_USERNAME")
-	password := os.Getenv("VAYU_PASSWORD")
+	envUsername := os.Getenv("VAYU_USERNAME")
+	envPassword := os.Getenv("VAYU_PASSWORD")
 
-
-	if config.Username.IsUnknown() && username == "" {
+	// Sensitive values (including sensitive input variables wired into the
+	// provider block) are often unknown during ValidateConfig. Configure resolves
+	// them and performs the required credential checks.
+	if !config.Username.IsUnknown() && config.Username.IsNull() && envUsername == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("username"),
-			"Unknown VayuCloud Username",
-			"The provider cannot create the VayuCloud API client as there is an unknown configuration value for the VayuCloud username. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the VAYU_USERNAME environment variable.",
+			"Missing VayuCloud Username",
+			"The provider cannot create the VayuCloud API client as there is a missing or empty value for the VayuCloud username. "+
+				"Set the username in the provider block, pass a variable value, or use the VAYU_USERNAME environment variable.",
 		)
 	}
 
-	if config.Password.IsUnknown() && password == "" {
+	if !config.Password.IsUnknown() && config.Password.IsNull() && envPassword == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("password"),
-			"Unknown VayuCloud Password",
-			"The provider cannot create the VayuCloud API client as there is an unknown configuration value for the VayuCloud password. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the VAYU_PASSWORD environment variable.",
+			"Missing VayuCloud Password",
+			"The provider cannot create the VayuCloud API client as there is a missing or empty value for the VayuCloud password. "+
+				"Set the password in the provider block, pass a variable value, or use the VAYU_PASSWORD environment variable.",
 		)
 	}
 

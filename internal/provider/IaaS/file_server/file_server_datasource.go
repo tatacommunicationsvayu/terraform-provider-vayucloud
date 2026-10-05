@@ -47,8 +47,8 @@ func (d *FileServerDataSource) Metadata(ctx context.Context, req datasource.Meta
 
 func (d *FileServerDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description:         "Reads one file server by platform id via config action-state (module FileServer, action read).",
-		MarkdownDescription: "Reads **a single** file server; set the `vserver_id` argument to the platform file server id. The provider calls `POST .../configservice/action-state?module=FileServer&action=read` with `resourceId` set to that id (same pattern as other IaaS resources). Response fields are mapped to `file_server_name`, `engagement_id`, `endpoint_id`, and `file_storage_type`. This data source never lists multiple file servers.\n\nTo list file servers for an engagement and endpoint, use `data.vayucloud_file_server_list` with `engagement_id` and `endpoint_id` (`GET .../nas/getNASVservers/{engagement_id}/{endpoint_id}`).",
+		Description:         "Reads one file server by platform id via GET /nas/fileserver-state/{fileServerId}.",
+		MarkdownDescription: "Reads **a single** file server; set the `vserver_id` argument to the platform file server id. The provider calls `GET /nas/fileserver-state/{fileServerId}`. Response fields are mapped to `file_server_name`, `engagement_id`, `endpoint_id`, and `file_storage_type`. This data source never lists multiple file servers.\n\nTo list file servers for an engagement and endpoint, use `data.vayucloud_file_server_list` with `engagement_id` and `endpoint_id` (`GET .../nas/getNASVservers/{engagement_id}/{endpoint_id}`).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description:         "Synthetic identifier for this data source instance (fileserver-{id} where id is the configured file server id).",

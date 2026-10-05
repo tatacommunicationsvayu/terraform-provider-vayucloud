@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	actionStateModulePublicIP = "publicIp"
-	actionStateActionCreate   = "create"
-	actionStateActionRead     = "read"
+	actionStateModulePublicIP   = "publicIp"
+	actionStateActionCreate     = "create"
+	actionStateActionRead       = "read"
 	actionStateActionDissociate = "delete"
 )
 
@@ -33,10 +33,10 @@ type publicIPReadActionData struct {
 
 // associatePublicIPRequest is the JSON body for the associate API.
 type associatePublicIPRequest struct {
-	PrivateIP            string `json:"privateIp"`
-	PublicIPPricingModel string `json:"publicIpPricingModel"`
-	RetainOnDissociate   bool   `json:"retainOnDissociate"`
-	AllowFetchOrProvisionPublicIp bool `json:"allowFetchOrProvisionPublicIp"`
+	PrivateIP                     string `json:"privateIp"`
+	PublicIPPricingModel          string `json:"publicIpPricingModel"`
+	RetainOnDissociate            bool   `json:"retainOnDissociate"`
+	AllowFetchOrProvisionPublicIp bool   `json:"allowFetchOrProvisionPublicIp"`
 }
 
 // dissociatePublicIPRequest is the JSON body for the dissociate API.
@@ -117,24 +117,32 @@ func actionStateRequestBody(resourceType, privateIP string) map[string]any {
 	}
 }
 
-// ReadPublicIPAssociation calls POST …/action-state?module=publicIp&action=read with resourceId, privateIp, and resourceType.
-// It returns the public IP from the matching publicIpDetail entry.
+// ReadPublicIPAssociation reads public IP association state.
+//
+// POST {NetworkOperationsPath}/publicip-state/{resourceId}
+// Request body: {"resourceType": "<type>", "privateIp": "<ip>"}
+// Returns the public IP from the matching publicIpDetail entry.
 func ReadPublicIPAssociation(c *client.Client, ctx context.Context, resourceID int64, resourceType, privateIP string) (string, error) {
-	tflog.Debug(ctx, "Reading public IP via action-state", map[string]any{
-		"resource_id":    resourceID,
-		"resource_type":  resourceType,
-		"private_ip":     privateIP,
+	tflog.Debug(ctx, "Reading public IP state", map[string]any{
+		"resource_id":   resourceID,
+		"resource_type": resourceType,
+		"private_ip":    privateIP,
 	})
 
-	body := map[string]any{
-		"resourceId":   resourceID,
-		"privateIp":    privateIP,
-		"resourceType": resourceType,
+	body := actionStateRequestBody(resourceType, privateIP)
+	path := fmt.Sprintf("%s/publicip-state/%d", common.NetworkOperationsPath, resourceID)
+	respBody, err := c.DoRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return "", fmt.Errorf("public IP read: %w", err)
 	}
 
-	actionResp, err := common.UpdateActionState(ctx, c, actionStateModulePublicIP, actionStateActionRead, body)
-	if err != nil {
-		return "", fmt.Errorf("public IP read (action-state): %w", err)
+	tflog.Debug(ctx, "Public IP state response", map[string]any{
+		"response": string(respBody),
+	})
+
+	var actionResp common.ActionStateResponse
+	if err := json.Unmarshal(respBody, &actionResp); err != nil {
+		return "", fmt.Errorf("parse public IP state response: %w", err)
 	}
 
 	if !strings.EqualFold(actionResp.Status, "success") {

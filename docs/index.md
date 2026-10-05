@@ -39,7 +39,6 @@ Resources create, update, and destroy infrastructure. Data sources read existing
 | [`vayucloud_extend_nas_zone`](resources/extend_nas_zone.md) | Extend NAS VLAN zone for a vserver |
 | [`vayucloud_s3_domain`](resources/s3_domain.md) | S3 (VCS) domain on a firewall |
 | [`vayucloud_s3_bucket`](resources/s3_bucket.md) | S3 bucket in a domain |
-| [`vayucloud_s3_object`](resources/s3_object.md) | S3 object upload |
 | [`vayucloud_s3_user`](resources/s3_user.md) | S3 service user |
 | [`vayucloud_s3_token`](resources/s3_token.md) | S3 access token |
 | [`vayucloud_virtualmachine`](resources/virtualmachine.md) | Virtual machine |
@@ -103,6 +102,9 @@ For a dependency-oriented walkthrough and consolidated reference, see [Resources
 | Guide | Description |
 |-------|-------------|
 | [Load balancer (HAProxy)](guides/load_balancer.md) | End-to-end LB → SSL → virtual service → public IP; imports, VIP pinning, and operations |
+| [Firewall to VM](guides/firewall_to_vm.md) | Firewall → zone → VM; firewall rules, C2S VPN, and security groups |
+| [NAS operations](guides/nas_operations.md) | File server, volumes, export policies, extend NAS zone, zone↔NAS rules |
+| [S3 operations](guides/s3_operations.md) | VCS domain, buckets, users, tokens, objects, public IP, and `ill_to_vcs` |
 
 ## How the pieces fit together (high level)
 
@@ -210,3 +212,6 @@ For verbose troubleshooting, set `TF_LOG=DEBUG`. To use a locally built provider
 
 - [Resources and data sources overview](resourcesAndDatasource.md) — Dependencies and quick reference.
 - [Load balancer guide](guides/load_balancer.md) — HAProxy end-to-end walkthrough.
+- [Firewall to VM guide](guides/firewall_to_vm.md) — Perimeter, VM, rules, VPN, security groups.
+- [NAS operations guide](guides/nas_operations.md) — NAS vserver through export and firewall rules.
+- [S3 operations guide](guides/s3_operations.md) — VCS domain through objects and public access.

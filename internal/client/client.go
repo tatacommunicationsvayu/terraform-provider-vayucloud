@@ -405,7 +405,9 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Vayu-Client-Id", "vayu_iac")
 
