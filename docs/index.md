@@ -16,10 +16,10 @@ The provider authenticates against the TATA Communications identity provider and
 ## Contents
 
 - [Getting Started / Quick Start](#getting-started--quick-start)
-- [Core Concepts and Best Practices](concepts.md)
+- [Core Concepts and Best Practices](#core-concepts-and-best-practices)
 - [Resource and data-source reference](#resource-and-data-source-reference)
-- [Security Best Practices](security.md)
-- [Appendices](appendices.md)
+- [Security Best Practices](#security-best-practices)
+- [Appendices](#appendices)
 - [Workflow guides](#guides)
 
 ## Getting Started / Quick Start
@@ -41,11 +41,11 @@ Declare the provider in `required_providers`, then run `terraform init` or `tofu
 
 ### Configure authentication
 
-Use `VAYU_USERNAME` and `VAYU_PASSWORD`, or provider arguments. Provider arguments take precedence when both are supplied. See [Security Best Practices](security.md) before placing credentials in files or CI variables.
+Use `VAYU_USERNAME` and `VAYU_PASSWORD`, or provider arguments. Provider arguments take precedence when both are supplied. See [Security Best Practices](#security-best-practices) before placing credentials in files or CI variables.
 
 ### Create your first resource
 
-Start with an existing network zone, or follow the dependency flow in [Core Concepts](concepts.md). A first VM normally uses image and flavor data sources:
+Start with an existing network zone, or follow the dependency flow in [Core Concepts](#core-concepts-and-best-practices). A first VM normally uses image and flavor data sources:
 
 ```hcl
 data "vayucloud_virtualmachine_image" "selected" {
@@ -84,6 +84,86 @@ Resources manage lifecycle. Data sources discover existing objects and catalog v
 ### Use the detailed reference
 
 The [resource and data-source reference](#resource-and-data-source-reference) groups each resource with its related data sources. The linked pages under each family retain the complete argument and attribute documentation.
+
+## Core Concepts and Best Practices
+
+Use this section to understand how the VayuCloud provider maps Terraform or OpenTofu configuration to platform resources.
+
+### Resources and data sources
+
+Resources create, update, and destroy infrastructure. Data sources read infrastructure that already exists and expose its attributes to configuration. A data source never creates or changes the object it reads.
+
+Names ending in `_list` return collections. The corresponding singular data source normally reads one object by identifier. List data sources may support a `filter` block; check the linked reference page for the exact filter names.
+
+### Build from the platform dependencies
+
+Most configurations follow this order:
+
+1. Firewall and account context
+2. Business unit and environment
+3. Network zone
+4. Virtual machine, storage, or network service
+5. Optional load balancer, VPN, security group, NAS, or S3 resources
+6. Public IP associations and firewall rules
+
+Use data sources when an earlier object already exists. Terraform references create implicit dependencies; use `depends_on` only when an API-side dependency is not represented by an attribute reference.
+
+### Asynchronous operations
+
+The provider waits for platform audit completion for long-running operations. Applies that create firewalls, virtual machines, load balancers, NAS resources, or similar services can take several minutes. Do not add shell sleeps or separate polling resources.
+
+Plan pipeline timeouts and change windows accordingly. A failed audit is reported as a Terraform diagnostic and should be investigated before retrying.
+
+#### Status fields
+
+`status` usually describes the last provider-tracked audit operation. Resource-specific fields such as `power_status`, `vpn_status`, or `ci_status` describe the platform object's current state. Do not treat these fields as interchangeable or duplicate them in module outputs without naming the distinction.
+
+#### Response codes
+
+`response_code` is returned by the underlying API envelope and is not a universal HTTP status field. Some action-state APIs use `0` for success, while account APIs may return an HTTP-style success code such as `200`. Use the resource or data-source page for the relevant endpoint and rely on provider diagnostics for failures.
+
+### Replacement and in-place updates
+
+Each reference page identifies arguments that force replacement and arguments that can be updated in place. Treat identifiers, parent relationships, and platform identity fields as replacement-sensitive unless the page explicitly says otherwise.
+
+For grow-only storage, increasing a size is supported but shrinking is not. For load balancers and virtual services, pin the assigned VIP before attaching a dependent public IP when the platform or provider version requires a stable address.
+
+### Imports and drift
+
+Import existing objects using the identifier documented on the resource page, then run `plan`. Some platform values are not returned by read APIs and must remain in configuration after import. Review the import notes before accepting a plan.
+
+### Terraform and OpenTofu
+
+The provider uses the same resource and data-source names with both tools. Replace `terraform` with `tofu` in command examples when using OpenTofu.
+
+Recommended workflow:
+
+```shell
+terraform fmt
+terraform init
+terraform validate
+terraform plan
+terraform apply
+```
+
+For OpenTofu:
+
+```shell
+tofu fmt
+tofu init
+tofu validate
+tofu plan
+tofu apply
+```
+
+### Configuration practices
+
+- Pin provider versions in release and production configurations.
+- Keep environment-specific values in variables or approved variable files.
+- Prefer data sources over copied platform identifiers where discovery is available.
+- Keep resource names stable; changing a Terraform address can cause replacement.
+- Review generated plans for replacement and public-IP dissociation before applying.
+- Do not commit credentials, private keys, or state files.
 
 ## Resource and data-source reference
 
@@ -192,6 +272,93 @@ For a dependency-oriented walkthrough and consolidated reference, see [Resources
 | [Firewall to VM](guides/firewall_to_vm.md) | Firewall → zone → VM; firewall rules, C2S VPN, and security groups |
 | [NAS operations](guides/nas_operations.md) | File server, volumes, export policies, extend NAS zone, zone↔NAS rules |
 | [S3 operations](guides/s3_operations.md) | VCS domain, buckets, users, tokens, objects, public IP, and `ill_to_vcs` |
+
+## Security Best Practices
+
+Treat provider configuration, state, plans, logs, and certificate material as sensitive operational data.
+
+### Credential handling
+
+Prefer `VAYU_USERNAME` and `VAYU_PASSWORD` environment variables or a CI secret store over literal credentials in `.tf` files. Provider arguments override environment variables when both are set.
+
+Supply resource secrets (for example C2S VPN `vpn_user_initial_password`) through an approved secrets mechanism or `TF_VAR_*` environment variables. Do not commit `.tfvars` files containing credentials. If a local `.tfvars` file is used, ensure that it is excluded from source control, restrict its permissions, and rotate credentials if they are exposed.
+
+### CI/CD
+
+- Store credentials in the CI platform's encrypted secret store.
+- Mask username, password, tokens, and API responses in job logs.
+- Use short-lived or least-privilege identities where the platform supports them.
+- Separate plan and apply permissions.
+- Restrict who can approve applies affecting production engagements.
+
+### Certificates and private keys
+
+`vayucloud_network_lb_ssl_profile` reads PEM content with `file()` and uploads it to the load balancer. Keep certificate and private-key files outside the repository or inject them into the runner just before apply.
+
+Never commit private keys, use them as ordinary output values, or print their contents during troubleshooting. Remove temporary copies after the run and rotate a key if it reaches source control, logs, plans, or shared state.
+
+### State and plan protection
+
+Terraform/OpenTofu state can contain passwords, tokens, assigned IPs, and other sensitive values even when the schema marks them sensitive. Protect state as if it were a credential:
+
+- Use an encrypted remote backend with access control and versioning.
+- Enable locking where supported.
+- Restrict state readers and writers to the smallest required group.
+- Encrypt state backups and remove obsolete copies.
+- Do not upload `.terraform`, `terraform.tfstate`, `*.tfplan`, or debug logs to public artifacts.
+- Review plan storage and CI retention policies.
+
+Use a backend appropriate for your organization's security and recovery requirements. Local state is suitable only for controlled, temporary development.
+
+### Troubleshooting safely
+
+Use debug logging only for the shortest practical interval. Review logs before sharing them externally; authorization headers, request bodies, passwords, and platform response data may be sensitive.
+
+When requesting support, provide the resource type, operation, audit identifier, timestamp, and sanitized diagnostic message. Do not send credentials, private keys, complete state files, or unredacted plans.
+
+## Appendices
+
+### Terminology and abbreviations
+
+- **VayuCloud** — the cloud platform managed by this provider.
+- **Virtual machine (VM)** — a compute instance placed in a network zone.
+- **Asynchronous operation** — an API operation completed through an audit workflow; the provider polls until completion.
+- **C2S VPN** — client-to-site VPN.
+- **VCS** — the VayuCloud S3-compatible object-storage service.
+- **VIP** — virtual IP address used by a load-balancer virtual service.
+- **IOPS** — storage performance tier expressed as **1**, **3**, or **5** IOPS/GB in Terraform configuration (not an absolute IOPS count such as a fixed baseline). The platform derives effective throughput from tier and volume size. Do not use legacy absolute-IOPS values in examples until that model is available in production.
+- **Certificate** — PEM-encoded certificate material; use “certificate” consistently rather than “cert” in configuration documentation.
+
+### Naming conventions
+
+Use lowercase snake case for Terraform addresses and provider arguments. Use stable, descriptive names for Terraform blocks, and include the environment when the same service exists more than once.
+
+Provider type names always use the `vayucloud_` prefix. List data sources use a `_list` suffix; collection attributes use plural names such as `virtual_machines`, `images`, or `flavors`.
+
+### Known limitations
+
+- Platform operations can take minutes and may require long CI job timeouts.
+- Some read APIs do not return every create-time argument; imported resources may need those arguments retained in configuration.
+- Storage expansion is generally grow-only.
+- Load-balancer virtual-service VIPs should be retained before creating dependent public-IP associations.
+- Secrets returned only during creation cannot be recovered from a later read; retain them in an approved secret system when needed.
+
+### Security considerations
+
+See [Security Best Practices](#security-best-practices) for credential handling, certificate files, state protection, and safe troubleshooting.
+
+### Change history
+
+This documentation set is maintained with the provider source. Record user-visible changes here when resource behavior, supported attributes, examples, or security guidance changes.
+
+### Support and escalation path
+
+1. Validate the configuration and review the resource-specific behavior notes.
+2. Check the audit identifier and sanitized error diagnostic.
+3. Reproduce with the smallest configuration that still fails.
+4. Escalate through the VayuCloud support process with provider version, Terraform/OpenTofu version, resource type, operation, timestamp, audit ID, and redacted logs.
+
+Never include credentials, private keys, complete state files, or unredacted plans in a support request.
 
 ## How the pieces fit together (high level)
 
