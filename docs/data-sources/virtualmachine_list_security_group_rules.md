@@ -5,6 +5,8 @@ description: |-
   Lists security groups and rules associated with a virtual machine, grouped by port. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_virtualmachine_list_security_group_rules`
 
 Returns security groups attached to a virtual machine, grouped by network port:

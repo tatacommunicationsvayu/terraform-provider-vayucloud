@@ -5,6 +5,8 @@ description: |-
   Lists security groups on a firewall. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_list_security_group`
 
 Returns security groups for a firewall. Use optional `filter` blocks to restrict rows (for example by `name`, `id`, or `description`).

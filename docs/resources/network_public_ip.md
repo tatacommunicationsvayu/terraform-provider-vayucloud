@@ -5,6 +5,8 @@ description: |-
   Associates a public IP with a VayuCloud platform resource (zone, virtual machine, firewall, bare metal, or load balancer). Create and destroy wait on audit completion.
 ---
 
+
+
 # `vayucloud_network_public_ip`
 
 Associates a public IPv4 address with a private IP on a supported resource using the network operations **associate** API. After the audit completes, the provider reads **action state** (`module=publicIp`, `action=read`) to fill `public_ip`.
@@ -55,7 +57,7 @@ Use **`https://`** when testing HTTPS listeners. Ensure firewall rules allow the
 
 ### Required
 
-* `resource_type` — (String) Path segment for the associate API. One of: `zone`, `virtualmachine`, `firewall`, `baremetal`, `loadbalancer`. Changing forces replacement.
+* `resource_type` — (String) Path segment for the associate API. One of: `zone`, `virtualmachine`, `firewall`, `baremetal`, `loadbalancer`, `vcs`. Changing forces replacement.
 * `resource_id` — (Number) Platform identifier of the target resource. Changing forces replacement.
 * `private_ip` — (String) Private IPv4 address to NAT with the allocated public IP. Must be valid IPv4. Changing forces replacement.
 

@@ -5,6 +5,8 @@ description: |-
   Provides a C2S VPN on an existing VayuCloud network firewall. Create and user mutations are asynchronous; the provider polls audit logs and updates action-state (module=c2svpn).
 ---
 
+
+
 # `vayucloud_network_c2s_vpn`
 
 Manages a C2S VPN attached to a **network firewall**. The platform provisions the VPN asynchronously; the provider waits for audit completion and syncs action-state. Read uses the action-state API (`module=c2svpn`, `action=read`).
@@ -32,7 +34,7 @@ resource "vayucloud_network_c2s_vpn" "example" {
 }
 ```
 
-Set `vpn_user_initial_password` (sensitive string) via `terraform.tfvars`, `-var`, or `TF_VAR_vpn_user_initial_password`; it must satisfy the password rules below.
+Supply `vpn_user_initial_password` (sensitive string) through an approved secrets mechanism or `TF_VAR_vpn_user_initial_password`. If a local `.tfvars` file is used, ensure that it is excluded from source control. It must satisfy the password rules below.
 
 ## Argument Reference
 
@@ -45,7 +47,7 @@ The following arguments are supported:
 * `pricing_model` — (String) One of `daily`, `monthly`, `reserved_1`, `reserved_2`, `reserved_3` (case-insensitive). Changing this forces a new resource.
 * `users` — (Block list, at least one) VPN users. Nested attributes:
   * `name` — (String) Username. Only letters, digits, `_`, and `-`.
-  * `password` — (String, sensitive) Password: length 8–50; must include lowercase, uppercase, digit, and at least one special character from the set `< > ( ) # "` (only characters allowed by the provider’s charset are accepted—for example `#` or `(`). Allowed characters are letters, digits, and `!#$%^&*()_+-=[]{}:;,.?/~`.
+  * `password` — (String, sensitive) Password: length 8–50; must include lowercase, uppercase, digit, and at least one special character. Allowed characters are letters, digits, and `!#$%^&*()_+-=[]{}:;,.?/~`.
 
 Usernames cannot be renamed in place; remove a user and add a new name instead.
 
@@ -54,7 +56,7 @@ Usernames cannot be renamed in place; remove a user and add a new name instead.
 In addition to the arguments above, the following attributes are exported:
 
 * `id` — (String) Same as `firewall_id` as a string.
-* `audit_id` — (String) Audit identifier from the last completed async operation.
+* `audit_id` — (String) Audit identifier from the last completed asynchronous operation.
 * `status` — (String) Audit status from the last completed operation.
 * `pre_shared_key` — (String, sensitive) Pre-shared key from the platform (read-only).
 * `vpn_name` — (String) VPN name from the platform.

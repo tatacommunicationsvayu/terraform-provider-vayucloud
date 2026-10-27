@@ -5,6 +5,8 @@ description: |-
   Provides a VayuCloud virtual machine. Create and delete are asynchronous; the provider polls audit logs. New resources run pre-create validation at plan time. Flavor and disk sizes can be updated in place.
 ---
 
+
+
 # `vayucloud_virtualmachine`
 
 Provides a virtual machine. The platform returns an audit identifier for create; the provider polls until provisioning completes.
@@ -150,9 +152,9 @@ resource "vayucloud_virtualmachine" "with_credentials" {
 * `name` — (String) Virtual machine name. Changing forces replacement.
 * `vm_purpose` — (String) Purpose code (for example `WEB`, `DB`, `OTHERS`). Changing forces replacement.
 * `image_id` — (Number) Image identifier. Changing forces replacement.
-* `flavor_id` — (Number) Flavor identifier. **May be changed in place** to resize the instance flavor (async).
+* `flavor_id` — (Number) Flavor identifier. **May be changed in place** to resize the instance flavor (asynchronous).
 * `zone_id` — (Number) Network zone identifier. Changing forces replacement.
-* `iops` — (Number) IOPS for the root disk. Changing forces replacement.
+* `iops` — (Number) IOPS tier for the root disk: **1**, **3**, or **5** (IOPS/GB). Examples use `1`. Do not use absolute IOPS counts (for example `3000`) or bandwidth strings such as `100 IOPS`. Changing forces replacement.
 * `is_kdump_or_page_enabled` — (String) `yes` / `Yes` or `no` / `No` per OS requirements (for example `Yes` for Windows / RHEL / SUSE, `No` for Ubuntu / Rocky). Changing forces replacement.
 
 ### Optional
@@ -171,7 +173,7 @@ resource "vayucloud_virtualmachine" "with_credentials" {
   * `ip` — (String) Assigned public IP. Computed from the platform after apply when applicable.
 * `additional_disk` — (List of Object) Extra disks. Each element supports:
   * `size` — (Number) Disk size in GB. Required in configuration.
-  * `iops` — (Number) IOPS. Required in configuration.
+  * `iops` — (Number) IOPS tier: **1**, **3**, or **5** (IOPS/GB). Required in configuration.
   * `id`, `name`, `disk_type`, `created_date` — (Number / String) Computed after apply when returned by the platform.
 * `custom_credentials` — (Object, optional) Custom OS login sent at create. Changing does not resize the VM in place (the platform does not return these values on read).
   * `username` — (String) Login username. At least 4 characters; must start with a letter; alphanumeric only; cannot be `root` or `administrator`.

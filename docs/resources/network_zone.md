@@ -5,6 +5,8 @@ description: |-
   Provides a VayuCloud network zone for virtual machine placement. Create and update operations are asynchronous where the platform requires audit polling.
 ---
 
+
+
 # `vayucloud_network_zone`
 
 Provides a network zone (logical segment with IP addressing). The provider validates `firewall_id` and `environment_id` before create.

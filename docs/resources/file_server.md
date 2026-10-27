@@ -5,6 +5,8 @@ description: |-
   Creates a NAS file server (vserver) in VayuCloud. Create and delete are asynchronous; there is no in-place update API.
 ---
 
+
+
 # `vayucloud_file_server`
 
 Creates a NAS **vserver** for file storage. The provider validates engagement, endpoint, and storage type at plan time. Updates are a no-op (only `audit_id` / `status` refresh).

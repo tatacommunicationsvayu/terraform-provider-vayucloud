@@ -5,6 +5,8 @@ description: |-
   Lists security group rules for a security group on a firewall. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_list_security_group_rules`
 
 Returns rules for one security group. Use optional `filter` blocks to restrict rows (for example by `protocol`, `direction`, or `id`).

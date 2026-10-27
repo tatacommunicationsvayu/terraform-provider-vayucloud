@@ -5,6 +5,8 @@ description: |-
   Enables and manages a VayuCloud Load Balancer on a firewall. Create, update (bandwidth), and delete operations are asynchronous; the provider polls audit logs until completion.
 ---
 
+
+
 # `vayucloud_network_lb`
 
 Enables a load balancer on an existing network firewall. The platform returns an audit identifier immediately; the provider polls the audit log until the operation finishes.

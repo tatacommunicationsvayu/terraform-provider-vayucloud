@@ -5,6 +5,8 @@ description: |-
   Reads a single resource group environment by identifier.
 ---
 
+
+
 # `vayucloud_resource_group_environment`
 
 Returns details for one environment. To list environments in a business unit, use [`vayucloud_resource_group_environment_list`](resource_group_environment_list.md).

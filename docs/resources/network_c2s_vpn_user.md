@@ -5,6 +5,8 @@ description: |-
   Manages C2S VPN users on a firewall where the VPN already exists. User add, remove, and password reset operations are asynchronous.
 ---
 
+
+
 # `vayucloud_network_c2s_vpn_user`
 
 Manages **only** the VPN user list for an existing C2S VPN on a given `firewall_id`. Use this when the VPN is already provisioned (for example via `vayucloud_network_c2s_vpn` or outside Terraform) and you want a separate resource to own user lifecycle.
@@ -34,7 +36,7 @@ resource "vayucloud_network_c2s_vpn_user" "example" {
 }
 ```
 
-Set `vpn_user_initial_password` (sensitive string) via `terraform.tfvars`, `-var`, or `TF_VAR_vpn_user_initial_password`; it must satisfy the same rules as for [`vayucloud_network_c2s_vpn`](network_c2s_vpn.md).
+Supply `vpn_user_initial_password` (sensitive string) through an approved secrets mechanism or `TF_VAR_vpn_user_initial_password`. If a local `.tfvars` file is used, ensure that it is excluded from source control. It must satisfy the same rules as for [`vayucloud_network_c2s_vpn`](network_c2s_vpn.md).
 
 ## Argument Reference
 

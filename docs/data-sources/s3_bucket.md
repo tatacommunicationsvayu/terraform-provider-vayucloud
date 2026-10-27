@@ -5,6 +5,8 @@ description: |-
   Reads a single S3 bucket by domain ID and bucket name.
 ---
 
+
+
 # `vayucloud_s3_bucket`
 
 ```hcl

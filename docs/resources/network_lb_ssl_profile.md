@@ -5,13 +5,15 @@ description: |-
   Uploads a client SSL certificate profile on a VayuCloud Load Balancer for HTTPS virtual services. Create and delete operations are asynchronous where the platform requires audit polling.
 ---
 
+
+
 # `vayucloud_network_lb_ssl_profile`
 
 Uploads a client SSL certificate and private key to an HAProxy load balancer. This is a prerequisite for HTTPS virtual services.
 
 For the full module walkthrough, see the [Load balancer guide](../guides/load_balancer.md).
 
-Example configuration: [`examples/IaaS/resources/vayucloud_network_lb_ssl_profile`](../../examples/IaaS/resources/vayucloud_network_lb_ssl_profile/resource.tf). Generate PEM files per [`CERTIFICATE.txt`](../../examples/IaaS/resources/vayucloud_network_lb_ssl_profile/CERTIFICATE.txt).
+Example configuration: [`examples/IaaS/resources/vayucloud_network_lb_ssl_profile`](../../examples/IaaS/resources/vayucloud_network_lb_ssl_profile/resource.tf). Generate PEM files according to the [certificate guidance](../security.md).
 
 Provide the certificate upload name and PEM file contents (same as uploading cert and key in the UI). The upload name may omit `.pem`; HAProxy stores it as `{name}.pem`. Use that stored name as `certificate_name` on [`vayucloud_network_lb_virtualservice`](network_lb_virtualservice.md) (for example `my-cert.pem`).
 

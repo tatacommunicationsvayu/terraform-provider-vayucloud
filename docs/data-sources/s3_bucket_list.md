@@ -5,6 +5,8 @@ description: |-
   Lists buckets in an S3 domain.
 ---
 
+
+
 # `vayucloud_s3_bucket_list`
 
 ```hcl

@@ -5,6 +5,8 @@ description: |-
   Reads a single network zone by resource identifier.
 ---
 
+
+
 # `vayucloud_network_zone`
 
 Returns the current configuration for one zone. To list every zone in an environment, use [`vayucloud_network_zone_list`](network_zone_list.md).

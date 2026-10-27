@@ -5,9 +5,22 @@ description: |-
   Reference for VayuCloud provider resources and data sources: summaries, dependency order, asynchronous behavior, and links to full documentation.
 ---
 
+
+
 # Resources and Data Sources
 
 This document summarizes the managed resources and read-only data sources in the VayuCloud provider. For provider configuration (authentication, timeouts), see the [VayuCloud provider](index.md) page. For per-attribute documentation, open the linked resource or data source guide.
+
+## Reference hubs
+
+Use the family pages for an easier reading path. Each page groups resources with related data sources and links to the complete argument and attribute reference:
+
+- [Account and resource groups](reference/account.md)
+- [Network and connectivity](reference/network.md)
+- [Virtual machines and compute](reference/compute.md)
+- [NAS file storage](reference/storage.md)
+- [S3 and VCS object storage](reference/object-storage.md)
+- [Security groups](reference/security-groups.md)
 
 ## Conventions
 
@@ -19,16 +32,16 @@ This document summarizes the managed resources and read-only data sources in the
 
 ## Resources
 
-| Resource | Description | Async | Documentation |
+| Resource | Description | Asynchronous | Documentation |
 |----------|-------------|:-----:|----------------|
 | `vayucloud_network_firewall` | Network firewall; throughput, internet bandwidth, optional pricing models and hypervisor; validates engagement and endpoint; in-place updates for display name, throughput, and bandwidth | Yes | [Network firewall](resources/network_firewall.md) |
 | `vayucloud_network_firewall_rule` | Firewall rule (allow/deny); source/destination types include internet, zone, NAS, VCS, load balancer; optional zone IDs and schedules; plan-time firewall and zone validation | Yes | [Network firewall rule](resources/network_firewall_rule.md) |
 | `vayucloud_network_lb` | Load balancer on a firewall; enable, modify bandwidth, disable; requires `firewall_id` and `zone_id`; `firewall_id` replace-only; bandwidth in Mbps | Yes | [Network load balancer](resources/network_lb.md) |
 | `vayucloud_network_lb_virtualservice` | HAProxy virtual service; listener, pool members, monitors; `load_balancer_id` and `name` replace-only; in-place updates for pool and listener settings | Yes | [Network LB virtual service](resources/network_lb_virtualservice.md) |
 | `vayucloud_network_lb_ssl_profile` | SSL client certificate upload for HTTPS; create and delete only (no in-place update) | Yes | [Network LB SSL profile](resources/network_lb_ssl_profile.md) |
-| `vayucloud_network_c2s_vpn` | C2S VPN on a firewall; pricing model and users; validates `firewall_id`; async create and user updates | Yes | [Network C2S VPN](resources/network_c2s_vpn.md) |
+| `vayucloud_network_c2s_vpn` | C2S VPN on a firewall; pricing model and users; validates `firewall_id`; asynchronous create and user updates | Yes | [Network C2S VPN](resources/network_c2s_vpn.md) |
 | `vayucloud_network_c2s_vpn_user` | VPN users only for an existing C2S VPN; add, remove, reset passwords; validates `firewall_id` at plan | Yes | [Network C2S VPN user](resources/network_c2s_vpn_user.md) |
-| `vayucloud_resource_group_business_unit` | Business unit under a firewall; validates `firewall_id`; in-place name updates | Yes | [Resource group business unit](resources/resource_group_business_unit.md) |
+| `vayucloud_resource_group_business_unit` | Business unit under a firewall (`firewall_id` + `business_unit` only; no `users`); validates `firewall_id`; in-place name updates | Yes | [Resource group business unit](resources/resource_group_business_unit.md) |
 | `vayucloud_resource_group_environment` | Environment within a business unit; validates firewall and business unit; in-place name updates | Yes | [Resource group environment](resources/resource_group_environment.md) |
 | `vayucloud_network_zone` | Network zone for VMs; Auto IPAM or CIDR, IPv4 or dual-stack, overlay or VLAN; validates firewall and environment; in-place name updates | Yes | [Network zone](resources/network_zone.md) |
 | `vayucloud_network_public_ip` | Associate public IP with private IP on zone, VM, firewall, bare metal, or load balancer; validates zone/VM IDs at plan; `retain_on_dissociate` in-place; identity and pricing replace-only | Yes | [Network public IP](resources/network_public_ip.md) |
@@ -36,7 +49,7 @@ This document summarizes the managed resources and read-only data sources in the
 | `vayucloud_file_storage_volume` | NAS volume; grow-only resize; validates parent file server at plan | Yes | [File storage volume](resources/file_storage_volume.md) |
 | `vayucloud_file_storage_export_policy` | Attach client IP to NAS volume export; synthetic `id` at plan time | Yes | [File storage export policy](resources/file_storage_export_policy.md) |
 | `vayucloud_extend_nas_zone` | Extend NAS VLAN zone for vserver; destroy deconfigures only (sync API) | No | [Extend NAS zone](resources/extend_nas_zone.md) |
-| `vayucloud_s3_domain` | S3 (VCS) domain on firewall; long async create; quota update in place | Yes | [S3 domain](resources/s3_domain.md) |
+| `vayucloud_s3_domain` | S3 (VCS) domain on firewall; long asynchronous create; quota update in place | Yes | [S3 domain](resources/s3_domain.md) |
 | `vayucloud_s3_bucket` | Bucket in domain; versioning in place; delete blocked when not empty | No | [S3 bucket](resources/s3_bucket.md) |
 | `vayucloud_s3_user` | S3 user; blocked on AI_STANDARD domains; delete cascades tokens | No | [S3 user](resources/s3_user.md) |
 | `vayucloud_s3_token` | S3 access token; secret only at create; AI_STANDARD restrictions | No | [S3 token](resources/s3_token.md) |
@@ -46,7 +59,7 @@ This document summarizes the managed resources and read-only data sources in the
 | `vayucloud_security_group` | Security group on a firewall; create, adopt by UUID, or adopt by type/resource ID; nested `rule` blocks | Yes | [Security group](resources/security_group.md) |
 | `vayucloud_virtualmachine_security_group_association` | Attach security groups to a VM; detach on destroy; in-place membership updates | Yes | [Virtual machine security group association](resources/virtualmachine_security_group_association.md) |
 
-Where **Async** is `Yes`, the provider polls audit logs until the operation completes when the platform requires it.
+Where **Asynchronous** is `Yes`, the provider polls audit logs until the operation completes when the platform requires it.
 
 ## Data sources
 
@@ -67,8 +80,8 @@ Where **Async** is `Yes`, the provider polls audit logs until the operation comp
 | `vayucloud_network_zone` | Single zone by resource ID | [Network zone](data-sources/network_zone.md) |
 | `vayucloud_network_zone_list` | Zones in an environment; optional `filter` | [Network zone list](data-sources/network_zone_list.md) |
 | `vayucloud_network_public_ips` | Public IP list for a firewall (`firewall-ci`) or engagement; exactly one filter | [Network public IPs](data-sources/network_public_ips.md) |
-| `vayucloud_resource_group_business_unit` | Single business unit by resource ID | [Resource group business unit](data-sources/resource_group_business_unit.md) |
-| `vayucloud_resource_group_business_unit_list` | Business units on a firewall; optional `filter` | [Resource group business unit list](data-sources/resource_group_business_unit_list.md) |
+| `vayucloud_resource_group_business_unit` | Single business unit by resource ID (name and API metadata; no `users`) | [Resource group business unit](data-sources/resource_group_business_unit.md) |
+| `vayucloud_resource_group_business_unit_list` | Business units on a firewall (ID and name per entry; optional `filter`) | [Resource group business unit list](data-sources/resource_group_business_unit_list.md) |
 | `vayucloud_resource_group_environment` | Single environment by resource ID | [Resource group environment](data-sources/resource_group_environment.md) |
 | `vayucloud_resource_group_environment_list` | Environments in a business unit; optional `filter` | [Resource group environment list](data-sources/resource_group_environment_list.md) |
 | `vayucloud_virtualmachine` | Single VM by instance ID | [Virtual machine](data-sources/virtualmachine.md) |

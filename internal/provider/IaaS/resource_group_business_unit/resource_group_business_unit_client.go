@@ -18,9 +18,8 @@ import (
 
 // ResourceGroupBusinessUnitCreateRequest contains the request body for creating a business unit component.
 type ResourceGroupBusinessUnitCreateRequest struct {
-	FirewallID   int64    `json:"firewallId"`
-	BusinessUnit string   `json:"businessUnit"`
-	Users        []string `json:"users"`
+	FirewallID   int64  `json:"firewallId"`
+	BusinessUnit string `json:"businessUnit"`
 }
 
 // CreateResourceGroupBusinessUnit initiates resource group business unit creation and returns the audit ID.
@@ -31,7 +30,6 @@ func CreateResourceGroupBusinessUnit(c *client.Client, ctx context.Context, req 
 	tflog.Debug(ctx, "Creating resource group business unit", map[string]any{
 		"firewall_id":   req.FirewallID,
 		"business_unit": req.BusinessUnit,
-		"users":         req.Users,
 	})
 
 	respBody, err := c.DoRequest(ctx, http.MethodPost, common.SecurityServicePath+"/business_unit_component", req)
@@ -236,9 +234,8 @@ func DeleteResourceGroupBusinessUnitAndWait(c *client.Client, ctx context.Contex
 
 // BusinessUnitListItem represents a single business unit returned by the list action.
 type BusinessUnitListItem struct {
-	ID           int64       `json:"id"`
-	BusinessUnit string      `json:"business_unit"`
-	Users        interface{} `json:"users"`
+	ID           int64  `json:"id"`
+	BusinessUnit string `json:"business_unit"`
 }
 
 // ListBusinessUnits retrieves all business units for a given firewall.
@@ -360,6 +357,23 @@ func firewallIDStringFromBURead(m map[string]interface{}) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// firewallIDInt64FromBURead converts the API's firewall id representation to
+// the Terraform schema type. The API commonly returns this value as a string,
+// while JSON numbers decoded into interface{} are float64.
+func firewallIDInt64FromBURead(m map[string]interface{}) (int64, error) {
+	value, ok := firewallIDStringFromBURead(m)
+	if !ok {
+		return 0, fmt.Errorf("API response does not include a firewall id")
+	}
+
+	firewallID, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("API response contains invalid firewall id %q: %w", value, err)
+	}
+
+	return firewallID, nil
 }
 
 // ValidateBusinessUnitExists checks whether a business unit with the given ID exists.

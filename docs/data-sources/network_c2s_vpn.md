@@ -5,6 +5,8 @@ description: |-
   Reads C2S VPN details for a firewall via the action-state API (module=c2svpn, action=read).
 ---
 
+
+
 # `vayucloud_network_c2s_vpn`
 
 Returns current C2S VPN state for one firewall. This uses the same read path as the [`vayucloud_network_c2s_vpn`](../resources/network_c2s_vpn.md) resource refresh.

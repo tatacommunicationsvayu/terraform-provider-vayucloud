@@ -5,6 +5,8 @@ description: |-
   Lists public IP inventory from the VayuCloud network public-ips API for a firewall or engagement.
 ---
 
+
+
 # `vayucloud_network_public_ips`
 
 Returns public IP rows from `GET .../network/public-ips` using either a **firewall** filter (`firewall-ci`) or an **engagement** filter (`engagement`). Exactly one of `firewall_id` or `engagement_id` must be set.

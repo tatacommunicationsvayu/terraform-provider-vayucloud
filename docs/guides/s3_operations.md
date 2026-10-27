@@ -5,6 +5,8 @@ description: |-
   End-to-end guide for VayuCloud S3 (VCS): domain on a firewall, buckets, users, access tokens, and optional public access via public IP and firewall rules.
 ---
 
+
+
 # S3 Operations Guide
 
 This guide walks through **S3 object storage (VCS)** in the VayuCloud provider: create a domain on a firewall, add buckets and service users, issue access tokens, and optionally expose the domain with a **public IP** and **`ill_to_vcs`** firewall rule. Upload and manage object data with an S3-compatible client using credentials from `vayucloud_s3_token`; use data sources to read object metadata in Terraform.
@@ -15,7 +17,7 @@ For per-attribute documentation, open the linked resource and data source pages.
 
 | Kind | Behavior |
 |------|----------|
-| **Resources** | Domain create/delete is async (~30 minutes typical). Buckets, users, and tokens are synchronous. |
+| **Resources** | Domain create/delete is asynchronous (~30 minutes typical). Buckets, users, and tokens are synchronous. |
 | **Data sources** | Read-only discovery (domains, buckets, users, tokens, object metadata). |
 | **`firewall_id` on domain** | Required; `engagement_id` and `endpoint_id` are computed from the firewall. |
 | **Secrets** | `secret_access_key` on `vayucloud_s3_token` is only available at **create**; store it securely. |
@@ -26,7 +28,7 @@ For per-attribute documentation, open the linked resource and data source pages.
 | ID | Purpose |
 |----|---------|
 | `firewall_id` | IPC firewall with S3 mapping |
-| Active `vayucloud_s3_domain` | Parent domain must complete async provisioning first |
+| Active `vayucloud_s3_domain` | Parent domain must complete asynchronous provisioning first |
 
 Child resources should `depends_on = [vayucloud_s3_domain.<name>]` until domain `status` is complete.
 
@@ -44,7 +46,7 @@ Child resources should `depends_on = [vayucloud_s3_domain.<name>]` until domain 
 
 ## Resources in this module
 
-| Resource | Description | Async | In-place updates | Documentation |
+| Resource | Description | Asynchronous | In-place updates | Documentation |
 |----------|-------------|:-----:|------------------|----------------|
 | `vayucloud_s3_domain` | S3 domain on firewall | Yes | **`quota`** only | [S3 domain](../resources/s3_domain.md) |
 | `vayucloud_s3_bucket` | Bucket in domain | No | `versioning_enabled` | [S3 bucket](../resources/s3_bucket.md) |
@@ -80,7 +82,7 @@ S3 stacks on an existing firewall. Domain provisioning is the long pole; everyth
 | Step | What | Terraform |
 |------|------|-----------|
 | 1 | **Network firewall** | Existing `firewall_id` with S3 mapping |
-| 2 | **Create S3 domain** | `vayucloud_s3_domain` — wait for async complete |
+| 2 | **Create S3 domain** | `vayucloud_s3_domain` — wait for asynchronous complete |
 | 3 | **Create bucket** | `vayucloud_s3_bucket` |
 | 4 | **Create user** | `vayucloud_s3_user` *(STANDARD domains)* |
 | 5 | **Create token** | `vayucloud_s3_token` — capture `secret_access_key` |
@@ -88,21 +90,16 @@ S3 stacks on an existing firewall. Domain provisioning is the long pole; everyth
 | 7 | **Public IP** *(optional)* | `vayucloud_network_public_ip` — `private_ip = domain_access_ip` |
 | 8 | **Firewall rule** *(optional)* | `ill_to_vcs` — internet → `vcs`, destination public IP `/32` |
 
-```text
-network_firewall
-        │
-        ▼
-   vayucloud_s3_domain  (~30 min async)
-        │
-   ┌────┴────┬──────────┐
-   ▼         ▼          ▼
-s3_bucket  s3_user   (domain_access_ip)
-   │         │
-   │         ▼
-   │     s3_token ──► S3 client (objects)
-   │
-   ▼ (optional)
-network_public_ip ──► network_firewall_rule (ill_to_vcs)
+```mermaid
+flowchart TD
+  firewall[Network firewall] --> domain[S3 domain]
+  domain --> bucket[S3 bucket]
+  domain --> user[S3 user]
+  user --> token[S3 token]
+  token --> client[S3 client]
+  domain --> accessIP[Domain access IP]
+  accessIP --> publicIP[Optional public IP]
+  publicIP --> firewallRule[Optional ill_to_vcs firewall rule]
 ```
 
 ## Complete example (STANDARD domain)

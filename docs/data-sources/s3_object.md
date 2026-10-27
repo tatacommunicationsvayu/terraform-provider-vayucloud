@@ -5,6 +5,8 @@ description: |-
   Reads S3 object metadata (not body) by domain, bucket, and key.
 ---
 
+
+
 # `vayucloud_s3_object`
 
 Returns object metadata only — **does not download object content**.

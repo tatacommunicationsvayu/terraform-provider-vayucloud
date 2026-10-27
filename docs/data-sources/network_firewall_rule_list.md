@@ -5,6 +5,8 @@ description: |-
   Lists network firewall rules for a firewall via the action-state API (module=firewallRule, action=list). Optional filter blocks narrow results client-side.
 ---
 
+
+
 # `vayucloud_network_firewall_rule_list`
 
 Returns all firewall rules on a firewall. Use [`vayucloud_network_firewall_rule`](network_firewall_rule.md) to read one rule by ID.

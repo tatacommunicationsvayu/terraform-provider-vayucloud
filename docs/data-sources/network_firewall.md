@@ -5,6 +5,8 @@ description: |-
   Reads a single network firewall by resource identifier.
 ---
 
+
+
 # `vayucloud_network_firewall`
 
 Returns current firewall configuration for one appliance. To enumerate firewalls without a known ID, use [`vayucloud_network_firewall_list`](network_firewall_list.md).

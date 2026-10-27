@@ -5,6 +5,8 @@ description: |-
   Discovers whether a NAS VLAN zone already exists for an engagement and endpoint.
 ---
 
+
+
 # `vayucloud_nas_vlan_zone`
 
 Used before creating a new NAS VLAN `vayucloud_network_zone` — when `is_nas_vlan_zone` is true, reuse `nas_vlan_zone_ids` instead of creating a duplicate zone.

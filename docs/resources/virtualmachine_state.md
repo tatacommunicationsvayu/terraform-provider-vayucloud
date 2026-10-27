@@ -5,6 +5,8 @@ description: |-
   Manages power and reboot actions for an existing VayuCloud virtual machine without creating or destroying the VM.
 ---
 
+
+
 # `vayucloud_virtualmachine_state`
 
 Controls power and reboot behavior for a virtual machine that already exists. This resource does **not** create or delete the VM; it only invokes platform power APIs for the given `instance_id`.

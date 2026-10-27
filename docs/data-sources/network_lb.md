@@ -5,6 +5,8 @@ description: |-
   Reads a single Load Balancer by CI Master ID.
 ---
 
+
+
 # `vayucloud_network_lb`
 
 Returns current load balancer configuration for one appliance. To enumerate load balancers without a known ID, use [`vayucloud_network_lb_list`](network_lb_list.md).

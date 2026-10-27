@@ -1,6 +1,7 @@
 # VayuCloud resource group business unit example
 #
-# Creates a business unit on an existing firewall.
+# Creates a business unit on an existing firewall. Only firewall_id and
+# business_unit are required; user association is handled by the platform.
 
 terraform {
   required_providers {

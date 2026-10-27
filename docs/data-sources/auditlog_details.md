@@ -5,6 +5,8 @@ description: |-
   Returns full detail for a single audit log entry by audit identifier.
 ---
 
+
+
 # `vayucloud_auditlog_details`
 
 Reads one audit record, including inputs, outputs, comments, and metadata. Use [`vayucloud_account_engagement_auditlog`](account_engagement_auditlog.md) to discover `audit_id` values.

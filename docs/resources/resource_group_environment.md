@@ -5,6 +5,8 @@ description: |-
   Provides an environment within a VayuCloud business unit. Provisioning is asynchronous; the provider waits on audit completion.
 ---
 
+
+
 # `vayucloud_resource_group_environment`
 
 Provides an environment (for example development or production) within a business unit. Requires an existing firewall and business unit.

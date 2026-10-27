@@ -5,6 +5,8 @@ description: |-
   Lists HAProxy virtual service configuration options for a load balancer. Optional filters narrow zones client-side.
 ---
 
+
+
 # `vayucloud_network_lb_virtualservice_options`
 
 Returns virtual service wizard options for a load balancer: protocols, pool algorithms, health monitors, persistence types, and LB-eligible zones.

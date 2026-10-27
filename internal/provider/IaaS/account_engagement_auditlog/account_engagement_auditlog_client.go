@@ -74,7 +74,7 @@ type EngagementAuditLogResponse struct {
 
 // GetAccountEngagementAuditLogs retrieves audit logs for a given engagement.
 //
-// POST {APIURL}/uat-auditlogservice/auditlog/audits/{engagementId}
+// POST {APIURL}/auditlog/audits/{engagementId}
 func GetAccountEngagementAuditLogs(c *client.Client, ctx context.Context, engagementID int64, request *AuditLogRequest) (*EngagementAuditLogResponse, error) {
 	tflog.Debug(ctx, "Fetching engagement audit logs", map[string]any{
 		"engagement_id": engagementID,

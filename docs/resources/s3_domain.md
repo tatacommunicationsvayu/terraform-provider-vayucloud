@@ -5,6 +5,8 @@ description: |-
   Manages an S3 (VCS) domain on a firewall. Create and delete are asynchronous (~30 minutes typical); quota may be updated in place.
 ---
 
+
+
 # `vayucloud_s3_domain`
 
 Creates a private **S3 domain** (object storage) mapped to a firewall. The provider resolves `engagement_id` and `endpoint_id` from `firewall_id` at plan time.
@@ -63,7 +65,7 @@ resource "vayucloud_s3_domain" "geo" {
 * `domain_access_ip` — (String) Private access IP on the firewall (for public IP association).
 * `domain_access_public_ip` — (String) Public IP when assigned by the platform.
 * `quota_unit` — (String) Quota unit (for example `GB`).
-* `audit_id` — (String) Audit ID from async operations.
+* `audit_id` — (String) Audit ID from asynchronous operations.
 * `status` — (String) Audit completion status.
 
 ## Import

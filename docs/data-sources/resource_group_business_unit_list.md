@@ -5,9 +5,11 @@ description: |-
   Lists business units for a network firewall. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_resource_group_business_unit_list`
 
-Returns every business unit attached to `firewall_id`. Use [`vayucloud_resource_group_business_unit`](resource_group_business_unit.md) to read one business unit by ID.
+Returns every business unit attached to `firewall_id` (ID and name per entry; no user list). Use [`vayucloud_resource_group_business_unit`](resource_group_business_unit.md) to read one business unit by ID.
 
 ## Example Usage
 
@@ -46,7 +48,10 @@ data "vayucloud_resource_group_business_unit_list" "one" {
 
 ## Attributes Reference
 
-* `business_units` — (List of Object) Objects include `resource_group_business_unit_id`, `business_unit`, `users`, and `status` as returned by the API.
+* `business_units` — (List of Object) Each object includes:
+
+  * `resource_group_business_unit_id` — (Number) Business unit resource identifier.
+  * `business_unit` — (String) Business unit name.
 * `status` — (String) API status.
 * `message` — (String) API message.
 * `response_code` — (Number) API response code.

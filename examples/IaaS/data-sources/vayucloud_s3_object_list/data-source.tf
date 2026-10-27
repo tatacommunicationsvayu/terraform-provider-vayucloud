@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Object List Data Source Example
+# VayuCloud S3 Object List Data Source Example
 
 terraform {
   required_providers {
@@ -28,7 +28,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

@@ -5,6 +5,8 @@ description: |-
   Lists virtual machine images (templates) available for a zone. Optional type, OS, and filter arguments narrow results.
 ---
 
+
+
 # `vayucloud_virtualmachine_image`
 
 Returns deployable images for `zone_id`. The provider validates that the zone exists before calling the templates API.

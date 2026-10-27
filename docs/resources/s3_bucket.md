@@ -5,6 +5,8 @@ description: |-
   Manages an S3 bucket in a VCS domain. Operations are synchronous; delete fails if the bucket is not empty.
 ---
 
+
+
 # `vayucloud_s3_bucket`
 
 Creates and deletes a bucket within an S3 domain. **Versioning** may be toggled in place.

@@ -5,6 +5,8 @@ description: |-
   End-to-end guide for HAProxy load balancers on VayuCloud: enable LB, SSL profiles, virtual services, pool members, public IP, imports, and operational best practices.
 ---
 
+
+
 # Load Balancer Guide
 
 This guide walks through the **HAProxy load balancer** module in the VayuCloud provider: enable a load balancer on a firewall, upload SSL certificates, create virtual services with backend pools, and optionally expose the listener with a public IP.
@@ -43,7 +45,7 @@ You do **not** upload certificate files separately in the UI when Terraform mana
 
 ## Resources in this module
 
-| Resource | Description | Async | In-place updates | Documentation |
+| Resource | Description | Asynchronous | In-place updates | Documentation |
 |----------|-------------|:-----:|------------------|----------------|
 | `vayucloud_network_lb` | Enable HAProxy on a firewall; requires `zone_id` + `bandwidth` | Yes | **`bandwidth`** only | [Network load balancer](../resources/network_lb.md) |
 | `vayucloud_network_lb_ssl_profile` | Upload client cert/key for HTTPS | Yes | None (recreate to change) | [Network LB SSL profile](../resources/network_lb_ssl_profile.md) |
@@ -85,20 +87,18 @@ Build from prerequisites inward. Steps 1–3 are usually already in place before
 | 8 | **Create virtual service** | `vayucloud_network_lb_virtualservice` — `zone_id` from LB |
 | 9 | **Public IP** *(optional)* | `vayucloud_network_public_ip` — `private_ip = <vs>.vip_ip` |
 
-```text
-firewall ──► zone (zone_id on LB) ──► VMs in zone
-                    │
-                    ▼
-            vayucloud_network_lb
-                    │
-        ┌───────────┼───────────┐
-        ▼           ▼           ▼
-   ssl_profile   vs_options   vm_list
-        │           │           │
-        └─────► virtualservice ◄┘
-                    │
-                    ▼ (optional)
-              network_public_ip
+```mermaid
+flowchart TD
+  firewall[Firewall] --> zone[Network zone]
+  zone --> vmList[VMs in zone]
+  zone --> loadBalancer[Load balancer]
+  loadBalancer --> sslProfile[SSL profile]
+  loadBalancer --> options[Virtual-service options]
+  loadBalancer --> vmList
+  sslProfile --> virtualService[Virtual service]
+  options --> virtualService
+  vmList --> virtualService
+  virtualService --> publicIP[Optional public IP]
 ```
 
 ## Complete example (HTTPS)
@@ -212,7 +212,7 @@ variable "pool_members" {
 2. Read assigned VIP: `terraform output -raw vip_ip`
 3. Set `vip_ip` in configuration and apply again.
 
-Without a pinned VIP, VS edits may allocate a **new** private IP. Because [`vayucloud_network_public_ip`](../resources/network_public_ip.md) binds to `private_ip`, a VIP change can **replace** the public IP association.
+The provider preserves the assigned VIP in state when `vip_ip` remains omitted, so ordinary VS edits do not normally change the address. Pin the VIP in configuration after the first apply when you need the value to be explicit and want a clear configuration-level contract. Because [`vayucloud_network_public_ip`](../resources/network_public_ip.md) binds to `private_ip`, an actual VIP change can **replace** the public IP association.
 
 ### HTTPS protocol
 

@@ -5,6 +5,8 @@ description: |-
   Lists uploaded client SSL certificate profiles on a load balancer.
 ---
 
+
+
 # `vayucloud_network_lb_ssl_profiles`
 
 Returns SSL certificate profiles already uploaded on a load balancer. Use the `name` value as `certificate_name` on HTTPS [`vayucloud_network_lb_virtualservice`](../resources/network_lb_virtualservice.md) resources.

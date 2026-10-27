@@ -2,12 +2,14 @@
 page_title: "vayucloud_resource_group_business_unit Resource"
 subcategory: ""
 description: |-
-  Provides a business unit under a VayuCloud firewall. Create and update operations are asynchronous where the platform requires audit polling.
+  Provides a business unit under a VayuCloud firewall. Requires only firewall_id and business_unit name. Create and update operations are asynchronous where the platform requires audit polling.
 ---
+
+
 
 # `vayucloud_resource_group_business_unit`
 
-Provides a business unit scoped to a firewall. The provider validates `firewall_id` before create and appends the configured provider username to the `users` list.
+Provides a business unit scoped to a firewall. The provider validates `firewall_id` before create. Configure only `firewall_id` and `business_unit`; the platform manages user association—there is no `users` argument on this resource.
 
 Only the `business_unit` name can be updated in place. Changing `firewall_id` forces replacement.
 
@@ -17,7 +19,6 @@ Only the `business_unit` name can be updated in place. Changing `firewall_id` fo
 resource "vayucloud_resource_group_business_unit" "example" {
   firewall_id   = {{firewall_id}}
   business_unit = "Engineering"
-  users         = ["admin@example.com"]
 }
 ```
 
@@ -27,10 +28,6 @@ resource "vayucloud_resource_group_business_unit" "example" {
 
 * `firewall_id` — (Number) Firewall identifier. Must exist. Forces new resource if changed.
 * `business_unit` — (String) Business unit name. Length 5–45; alphanumeric, `_`, and `-` allowed. Can be updated in place.
-
-### Optional
-
-* `users` — (List of String) Additional user email addresses. The provider username is always included by the platform.
 
 ## Attributes Reference
 

@@ -5,6 +5,8 @@ description: |-
   Manages an S3 service user in a VCS domain. Synchronous create/delete; no in-place update API.
 ---
 
+
+
 # `vayucloud_s3_user`
 
 Creates a service user for S3 API access. **No update API** — changes to `user_name` force replacement.

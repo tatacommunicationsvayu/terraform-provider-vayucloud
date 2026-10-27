@@ -5,6 +5,8 @@ description: |-
   Manages a network firewall rule on a VayuCloud firewall. Create, update, and delete are asynchronous; the provider polls audit logs until completion.
 ---
 
+
+
 # `vayucloud_network_firewall_rule`
 
 Manages a firewall rule (allow/deny) on an existing network firewall. The provider validates `firewall_id` and zone requirements during plan when the API client is configured.
@@ -121,7 +123,7 @@ resource "vayucloud_network_firewall_rule" "internet_to_lb" {
 ## Attributes Reference
 
 * `id` — (String) Rule identifier on the firewall.
-* `audit_id` — (String) Audit ID from the last async operation.
+* `audit_id` — (String) Audit ID from the last asynchronous operation.
 * `status` — (String) Audit completion status.
 
 ## Import

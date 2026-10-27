@@ -5,6 +5,8 @@ description: |-
   Reads a network firewall rule by firewall ID and rule ID via the action-state API (module=firewallRule, action=read).
 ---
 
+
+
 # `vayucloud_network_firewall_rule`
 
 Returns the current state of one firewall rule. This uses the same read path as the [`vayucloud_network_firewall_rule`](../resources/network_firewall_rule.md) resource refresh.

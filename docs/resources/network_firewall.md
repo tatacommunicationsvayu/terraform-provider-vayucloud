@@ -5,6 +5,8 @@ description: |-
   Provides a VayuCloud network firewall. Create and update operations are asynchronous; the provider polls audit logs until completion.
 ---
 
+
+
 # `vayucloud_network_firewall`
 
 Provides a network firewall in VayuCloud. The platform returns an audit identifier immediately; the provider polls the audit log until the operation finishes.

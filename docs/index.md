@@ -11,9 +11,96 @@ The VayuCloud provider is used to interact with the resources supported by the V
 
 The provider authenticates against the TATA Communications identity provider and uses a Bearer token for API requests. Long-running operations are handled by polling audit logs until completion, so applies can span several minutes for resources such as firewalls and virtual machines.
 
-## Resources and data sources
+> Documentation version: maintained with the provider source. Last reviewed: 2026-10-14.
 
-Resources create, update, and destroy infrastructure. Data sources read existing data without changing it.
+## Contents
+
+- [Getting Started / Quick Start](#getting-started--quick-start)
+- [Core Concepts and Best Practices](concepts.md)
+- [Resource and data-source reference](#resource-and-data-source-reference)
+- [Security Best Practices](security.md)
+- [Appendices](appendices.md)
+- [Workflow guides](#guides)
+
+## Getting Started / Quick Start
+
+### Who should use this guide
+
+This guide is for platform engineers, application teams, and operators managing VayuCloud infrastructure with Terraform or OpenTofu.
+
+### Prerequisites
+
+- A VayuCloud account with access to the required engagement and endpoint.
+- Terraform 1.0 or later, or OpenTofu.
+- Network access to the VayuCloud APIs.
+- Credentials supplied through an approved secret mechanism.
+
+### Install the provider
+
+Declare the provider in `required_providers`, then run `terraform init` or `tofu init`. For local provider development, see the installation instructions in the repository [README](../README.md).
+
+### Configure authentication
+
+Use `VAYU_USERNAME` and `VAYU_PASSWORD`, or provider arguments. Provider arguments take precedence when both are supplied. See [Security Best Practices](security.md) before placing credentials in files or CI variables.
+
+### Create your first resource
+
+Start with an existing network zone, or follow the dependency flow in [Core Concepts](concepts.md). A first VM normally uses image and flavor data sources:
+
+```hcl
+data "vayucloud_virtualmachine_image" "selected" {
+  zone_id = var.zone_id
+}
+
+data "vayucloud_virtualmachine_flavor" "selected" {
+  zone_id = var.zone_id
+}
+
+resource "vayucloud_virtualmachine" "example" {
+  name       = "example-vm"
+  vm_purpose = "WEB"
+  image_id   = data.vayucloud_virtualmachine_image.selected.images[0].id
+  flavor_id  = data.vayucloud_virtualmachine_flavor.selected.flavors[0].id
+  zone_id    = var.zone_id
+  iops       = 1
+  is_kdump_or_page_enabled = "No"
+}
+```
+
+### Run init, plan, and apply
+
+```shell
+terraform init
+terraform plan
+terraform apply
+```
+
+Use `tofu` instead of `terraform` for OpenTofu. Review replacement actions, public-IP changes, and sensitive values in the plan before approval.
+
+### Understand resources versus data sources
+
+Resources manage lifecycle. Data sources discover existing objects and catalog values. Use a data source when the platform object already exists or when a catalog identifier should be selected by a stable filter.
+
+### Use the detailed reference
+
+The [resource and data-source reference](#resource-and-data-source-reference) groups each resource with its related data sources. The linked pages under each family retain the complete argument and attribute documentation.
+
+## Resource and data-source reference
+
+Start with a family page, then open the linked resource or data-source detail:
+
+- [Account and resource groups](reference/account.md)
+- [Network and connectivity](reference/network.md)
+- [Virtual machines and compute](reference/compute.md)
+- [NAS file storage](reference/storage.md)
+- [S3 and VCS object storage](reference/object-storage.md)
+- [Security groups](reference/security-groups.md)
+
+For dependency order and asynchronous-operation coverage, see [Resources and data sources overview](resourcesAndDatasource.md).
+
+## Complete inventory
+
+The family pages above are the recommended navigation path. This compact inventory is retained for search and quick lookup; open the linked page for complete documentation.
 
 - **Single-object data sources** resolve one resource by identifier.
 - **List data sources** (names ending in `_list`) return collections and often support optional `filter` blocks for client-side narrowing.
@@ -29,7 +116,7 @@ Resources create, update, and destroy infrastructure. Data sources read existing
 | [`vayucloud_network_lb_ssl_profile`](resources/network_lb_ssl_profile.md) | SSL client certificate upload for HTTPS virtual services |
 | [`vayucloud_network_c2s_vpn`](resources/network_c2s_vpn.md) | C2S VPN on a firewall (pricing model and users) |
 | [`vayucloud_network_c2s_vpn_user`](resources/network_c2s_vpn_user.md) | C2S VPN users only (add, remove, password reset) |
-| [`vayucloud_resource_group_business_unit`](resources/resource_group_business_unit.md) | Business unit under a firewall |
+| [`vayucloud_resource_group_business_unit`](resources/resource_group_business_unit.md) | Business unit under a firewall (`firewall_id` and name only) |
 | [`vayucloud_resource_group_environment`](resources/resource_group_environment.md) | Environment within a business unit |
 | [`vayucloud_network_zone`](resources/network_zone.md) | Network zone for virtual machine placement |
 | [`vayucloud_network_public_ip`](resources/network_public_ip.md) | Associate a public IP with a zone, VM, firewall, bare metal, or load balancer |
@@ -80,8 +167,8 @@ Resources create, update, and destroy infrastructure. Data sources read existing
 | [`vayucloud_s3_user_list`](data-sources/s3_user_list.md) | Users in a domain |
 | [`vayucloud_s3_token`](data-sources/s3_token.md) | S3 token metadata |
 | [`vayucloud_s3_token_list`](data-sources/s3_token_list.md) | Tokens in a domain |
-| [`vayucloud_resource_group_business_unit`](data-sources/resource_group_business_unit.md) | Single business unit by ID |
-| [`vayucloud_resource_group_business_unit_list`](data-sources/resource_group_business_unit_list.md) | Business units on a firewall |
+| [`vayucloud_resource_group_business_unit`](data-sources/resource_group_business_unit.md) | Single business unit by ID (name; no users) |
+| [`vayucloud_resource_group_business_unit_list`](data-sources/resource_group_business_unit_list.md) | Business units on a firewall (ID and name) |
 | [`vayucloud_resource_group_environment`](data-sources/resource_group_environment.md) | Single environment by ID |
 | [`vayucloud_resource_group_environment_list`](data-sources/resource_group_environment_list.md) | Environments in a business unit |
 | [`vayucloud_virtualmachine`](data-sources/virtualmachine.md) | Single virtual machine by instance ID |

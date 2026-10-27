@@ -5,6 +5,8 @@ description: |-
   Manages a NAS file storage volume. Create, grow-only resize, and delete are asynchronous.
 ---
 
+
+
 # `vayucloud_file_storage_volume`
 
 Creates and manages a NAS volume on a file server. **Size can only increase** in place; shrinking errors at apply.
@@ -42,12 +44,12 @@ resource "vayucloud_file_storage_volume" "nas" {
 
 * `volume_type` — (String) Default `Flex Volume`. Changing forces replacement.
 * `file_storage_type` — (String) For example `NFS`. Changing forces replacement.
-* `iops` — (Number) IOPS. Changing forces replacement.
+* `iops` — (Number, optional) IOPS tier: **1**, **3**, or **5** (IOPS/GB). Omit it to let the NAS order set the platform default; changing an explicitly configured value forces replacement. Do not use absolute IOPS counts in configuration.
 
 ## Attributes Reference
 
 * `id` — (String) Volume identifier.
-* `audit_id` — (String) Audit ID from async operations.
+* `audit_id` — (String) Audit ID from asynchronous operations.
 * `status` — (String) Audit completion status.
 
 ## Import

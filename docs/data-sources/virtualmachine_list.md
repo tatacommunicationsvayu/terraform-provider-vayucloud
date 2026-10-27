@@ -5,6 +5,8 @@ description: |-
   Lists virtual machines in a network zone. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_virtualmachine_list`
 
 Returns a summary row per VM in `zone_id`. Use [`vayucloud_virtualmachine`](virtualmachine.md) when you need full detail for a known `instance_id`.

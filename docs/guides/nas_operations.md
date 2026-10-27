@@ -5,6 +5,8 @@ description: |-
   End-to-end guide for VayuCloud NAS: file server (vserver), volumes, export policies, NAS VLAN zones, extend NAS zone, and zone↔NAS firewall rules.
 ---
 
+
+
 # NAS Operations Guide
 
 This guide walks through **NAS file storage** in the VayuCloud provider: create a file server (vserver), provision volumes, attach client IPs for NFS/CIFS export, wire the NAS VLAN zone to the vserver, and open **zone ↔ NAS** traffic with firewall rules.
@@ -36,14 +38,14 @@ For VM mount access you also need the VM private IP (`vayucloud_virtualmachine.i
 | Item | How you provide it |
 |------|-------------------|
 | vServer | `vayucloud_file_server` — `vserver_name`, `file_storage_type` (`NAS-NFS` or `CIFS`) |
-| Volume | `vayucloud_file_storage_volume` — size, IOPS, pricing |
+| Volume | `vayucloud_file_storage_volume` — size, IOPS tier (1/3/5 IOPS/GB), pricing |
 | Client mount | `vayucloud_file_storage_export_policy` — `client_ip` per VM or subnet |
 | NAS VLAN wiring | `vayucloud_nas_vlan_zone` data source + optional `vayucloud_extend_nas_zone` |
 | Network path | `vayucloud_network_firewall_rule` with `source`/`destination` `zone` or `nas` |
 
 ## Resources in this module
 
-| Resource | Description | Async | In-place updates | Documentation |
+| Resource | Description | Asynchronous | In-place updates | Documentation |
 |----------|-------------|:-----:|------------------|----------------|
 | `vayucloud_file_server` | NAS vserver | Yes | None (no update API) | [File server](../resources/file_server.md) |
 | `vayucloud_file_storage_volume` | NAS volume on vserver | Yes | **Grow** `size_gb` only | [File storage volume](../resources/file_storage_volume.md) |
@@ -85,26 +87,16 @@ NAS sits beside the VM stack: you need account context, a vserver, volumes, expo
 | 7 | **Firewall rules** | `zone` ↔ `nas` rules with zone IDs and CIDRs |
 | 8 | Mount on VM | OS-level NFS/CIFS mount using export path from platform |
 
-```text
-engagement / endpoint
-        │
-        ▼
-  nas_vlan_zone (data) ──► extend_nas_zone (optional)
-        │
-        ▼
-   file_server (vserver)
-        │
-        ▼
- file_storage_volume
-        │
-        ▼
-file_storage_export_policy ◄── VM ip (client_ip)
-        │
-        ▼
-network_firewall_rule (zone ↔ nas, NFS)
-        │
-        ▼
-   VM mount (OS)
+```mermaid
+flowchart TD
+  account[Engagement and endpoint] --> vlan[NAS VLAN zone]
+  vlan --> extend[Optional NAS zone extension]
+  vlan --> server[File server]
+  server --> volume[File storage volume]
+  volume --> exportPolicy[Export policy]
+  vm[VM client IP] --> exportPolicy
+  exportPolicy --> firewallRule[Firewall rule]
+  firewallRule --> mount[VM mount]
 ```
 
 ## Complete example (NFS)
@@ -155,7 +147,7 @@ resource "vayucloud_file_storage_volume" "data" {
   file_storage_type = "NFS"
   usage_type        = "reserved"
   pricing_model     = "reserved_1"
-  iops              = 3000
+  iops              = 1
 }
 
 resource "vayucloud_file_storage_export_policy" "app" {
@@ -226,11 +218,11 @@ When `source` or `destination` is `zone` or `nas`, provide `source_zone_id` or `
 
 | Operation | Typical duration | Notes |
 |-----------|------------------|-------|
-| File server create | Minutes | Async audit polling |
-| Volume create | Minutes | Async audit polling |
-| Export attach/detach | Minutes | Async audit polling |
+| File server create | Minutes | Asynchronous audit polling |
+| Volume create | Minutes | Asynchronous audit polling |
+| Export attach/detach | Minutes | Asynchronous audit polling |
 | Extend NAS zone | Seconds | Synchronous API |
-| Volume grow | Minutes | Async audit polling |
+| Volume grow | Minutes | Asynchronous audit polling |
 
 ### Import existing infrastructure
 

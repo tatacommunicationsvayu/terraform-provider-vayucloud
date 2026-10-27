@@ -1,8 +1,8 @@
-﻿# VayuCloud S3 User Resource Example
+# VayuCloud S3 User Resource Example
 #
 # User CRUD is synchronous (no audit log / action-state).
 # Parent vayucloud_s3_domain must exist and be active first.
-# Not supported on AI_STANDARD (DDN OSS) domains — use root + vayucloud_s3_token instead.
+# Not supported on AI_STANDARD (DDN OSS) domains use root + vayucloud_s3_token instead.
 
 terraform {
   required_providers {
@@ -32,7 +32,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

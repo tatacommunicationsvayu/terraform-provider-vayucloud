@@ -1,6 +1,6 @@
 # VayuCloud Resource Group Business Unit Data Source Example
 #
-# Reads one business unit by resource ID.
+# Reads one business unit by resource ID (name and API metadata; no users list).
 
 terraform {
   required_providers {
@@ -40,7 +40,6 @@ output "business_unit_summary" {
   description = "Business unit fields from read"
   value = {
     business_unit = data.vayucloud_resource_group_business_unit.example.business_unit
-    users         = data.vayucloud_resource_group_business_unit.example.users
     status        = data.vayucloud_resource_group_business_unit.example.status
   }
 }

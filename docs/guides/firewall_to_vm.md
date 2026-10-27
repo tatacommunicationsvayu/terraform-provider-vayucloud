@@ -5,6 +5,8 @@ description: |-
   End-to-end guide for VayuCloud network perimeter to workloads: firewall, resource groups, zones, VMs, firewall rules, C2S VPN, and security groups.
 ---
 
+
+
 # Firewall to VM Guide
 
 This guide walks through the **network-to-workload** path in the VayuCloud provider: stand up a firewall and organizational hierarchy, place VMs in a zone, open traffic with **firewall rules**, allow remote access with **C2S VPN**, and enforce host-level access with **security groups**.
@@ -46,7 +48,7 @@ Resolve engagement and endpoint with data sources when they are not literals. Re
 
 ## Resources in this module
 
-| Resource | Description | Async | In-place updates | Documentation |
+| Resource | Description | Asynchronous | In-place updates | Documentation |
 |----------|-------------|:-----:|------------------|----------------|
 | `vayucloud_network_firewall` | Perimeter firewall; throughput and internet bandwidth | Yes | Display name, throughput, bandwidth | [Network firewall](../resources/network_firewall.md) |
 | `vayucloud_resource_group_business_unit` | Business unit under firewall | Yes | Name | [Resource group business unit](../resources/resource_group_business_unit.md) |
@@ -103,28 +105,18 @@ Build from the perimeter inward, then add access controls.
 | 11 | **Firewall rules** | `vayucloud_network_firewall_rule` — internet ↔ zone, zone ↔ zone, etc. |
 | 12 | **C2S VPN** *(optional)* | `vayucloud_network_c2s_vpn` on same `firewall_id` |
 
-```text
-engagement / endpoint
-        │
-        ▼
-   network_firewall
-        │
-   ┌────┴────┬──────────────┐
-   ▼         ▼              ▼
-business   c2s_vpn    firewall_rules
-  unit         │              │
-   │           │              │
-   ▼           │              │
-environment    │              │
-   │           │              │
-   ▼           │              │
-network_zone ◄─┴──────────────┘
-   │
-   ▼
-virtualmachine ──► security_group_association ◄── security_group
-   │
-   ▼ (optional)
-network_public_ip
+```mermaid
+flowchart TD
+  account[Engagement and endpoint] --> firewall[Network firewall]
+  firewall --> businessUnit[Business unit]
+  businessUnit --> environment[Environment]
+  environment --> zone[Network zone]
+  firewall --> vpn[Optional C2S VPN]
+  firewall --> firewallRules[Firewall rules]
+  zone --> vm[Virtual machine]
+  vm --> association[Security-group association]
+  securityGroup[Security group] --> association
+  vm --> publicIP[Optional public IP]
 ```
 
 ## Complete example
@@ -134,6 +126,10 @@ Repository examples (variable pattern as other IaaS modules):
 | Path | Purpose |
 |------|---------|
 | `examples/IaaS/resources/vayucloud_network_firewall/` | Create firewall |
+| `examples/IaaS/resources/vayucloud_resource_group_business_unit/` | Create business unit (`firewall_id` + name) |
+| `examples/IaaS/resources/vayucloud_resource_group_environment/` | Create environment in a business unit |
+| `examples/IaaS/data-sources/vayucloud_resource_group_business_unit/` | Read one business unit by ID |
+| `examples/IaaS/data-sources/vayucloud_resource_group_business_unit_list/` | List business units on a firewall |
 | `examples/IaaS/resources/vayucloud_network_zone/` | Create zone |
 | `examples/IaaS/resources/vayucloud_virtualmachine/` | Create VM |
 | `examples/IaaS/resources/vayucloud_network_firewall_rule/` | Firewall rule |
@@ -173,7 +169,7 @@ resource "vayucloud_virtualmachine" "app" {
   image_id                 = data.vayucloud_virtualmachine_image.app.images[0].id
   flavor_id                = data.vayucloud_virtualmachine_flavor.app.flavors[0].id
   zone_id                  = vayucloud_network_zone.app.id
-  iops                     = 3000
+  iops                     = 1
   is_kdump_or_page_enabled = "No"
   usage_type               = "ppu"
   pricing_model            = "hourly"
@@ -241,7 +237,7 @@ resource "vayucloud_network_c2s_vpn" "remote" {
 }
 ```
 
-Set `vpn_user_initial_password` via `terraform.tfvars` or `TF_VAR_vpn_user_initial_password`. Password rules: length 8–50; lowercase, uppercase, digit, and allowed special character required.
+Supply `vpn_user_initial_password` through an approved secrets mechanism or `TF_VAR_vpn_user_initial_password`. If a local `.tfvars` file is used, ensure that it is excluded from source control. Password rules: length 8–50; lowercase, uppercase, digit, and allowed special character required.
 
 ## Operational notes
 

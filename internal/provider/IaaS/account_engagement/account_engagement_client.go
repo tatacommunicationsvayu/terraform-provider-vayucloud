@@ -32,7 +32,7 @@ type AccountEngagementResponse struct {
 
 // GetAccountEngagements retrieves the list of user engagements from the API.
 //
-// GET {APIURL}/uat-portalservice/configservice/getuserengagements
+// GET {APIURL}/configservice/getuserengagements
 // Returns the parsed engagement list and any error that occurred.
 func GetAccountEngagements(c *client.Client, ctx context.Context) (*AccountEngagementResponse, error) {
 	tflog.Debug(ctx, "Fetching account engagements")

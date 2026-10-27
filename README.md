@@ -117,7 +117,7 @@ cp terraform-provider-vayucloud ~/.terraform.d/plugins/registry.terraform.io/tat
 
 The provider block supports `username`, `password`, and optional `timeout` (HTTP timeout in seconds, default `60`). API endpoints are fixed in the provider; you do not set `auth_url` or `api_url` in Terraform. TLS certificate validation is always enabled (TLS 1.2+).
 
-The example below looks up a **virtual machine image** and **flavor** for a **zone ID you supply** (for example via `terraform.tfvars`, `-var 'zone_id=...'`, or CI variables), then creates a **virtual machine** using those IDs. Replace the filter `values` with names that exist in your account.
+The example below looks up a **virtual machine image** and **flavor** for a **zone ID you supply** (for example via a **gitignored** `terraform.tfvars`, `-var`, `TF_VAR_*`, or CI variables), then creates a **virtual machine** using those IDs. Replace the filter `values` with names that exist in your account. Do not commit files that contain real credentials.
 
 ```hcl
 terraform {
@@ -130,14 +130,26 @@ terraform {
 }
 
 provider "vayucloud" {
-  username = "your-user@example.com"
-  password = "your-password"
+  username = var.vayucloud_username
+  password = var.vayucloud_password
   # timeout  = 60
 }
 
-# Set at apply time, e.g. terraform apply -var="zone_id=20504"
-# or use a terraform.tfvars file. You can also wire this from another
-# data source (e.g. vayucloud_network_zone_list) instead of a variable.
+variable "vayucloud_username" {
+  description = "VayuCloud username (email). Prefer VAYU_USERNAME or TF_VAR_vayucloud_username."
+  type        = string
+  sensitive   = true
+}
+
+variable "vayucloud_password" {
+  description = "VayuCloud password. Prefer VAYU_PASSWORD or TF_VAR_vayucloud_password."
+  type        = string
+  sensitive   = true
+}
+
+# Set at apply time, e.g. terraform apply -var="zone_id=12345"
+# or use a gitignored terraform.tfvars file. You can also wire zone_id from
+# vayucloud_network_zone_list instead of a variable.
 variable "zone_id" {
   description = "Network zone ID where the VM will be created."
   type        = number
@@ -194,11 +206,13 @@ Endpoint URLs and related defaults are defined in [`internal/provider/IaaS/commo
 
 ### Environment variables
 
-Configuration can be supplied via environment variables (Terraform attributes override these when set):
+Configuration can be supplied via environment variables (Terraform provider arguments override these when set):
 
 - `VAYU_USERNAME` — Username (maps to the `email` field in the token request)
 - `VAYU_PASSWORD` — Password
 - `VAYU_TIMEOUT` — HTTP client timeout in seconds (must be a positive integer)
+
+For variables in your Terraform configuration (for example `vayucloud_username` in the sample above), you can also use `TF_VAR_<name>` (e.g. `TF_VAR_vayucloud_password`) instead of a `terraform.tfvars` file.
 
 ## Development
 

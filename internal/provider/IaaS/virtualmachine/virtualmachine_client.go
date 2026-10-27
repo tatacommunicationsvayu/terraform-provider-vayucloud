@@ -397,7 +397,8 @@ func CreateVirtualMachine(c *client.Client, ctx context.Context, req *VirtualMac
 }
 
 // createInstanceActionStateBody builds the action-state request body for instance create
-// audit completion. Steps are derived from create request flags (e.g. public IP association).
+// audit completion. Steps are derived from create request flags (e.g. public IP association,
+// additional disk association).
 func createInstanceActionStateBody(req *VirtualMachineCreateRequest) map[string]any {
 	if req == nil {
 		return nil
@@ -406,6 +407,9 @@ func createInstanceActionStateBody(req *VirtualMachineCreateRequest) map[string]
 	var steps []string
 	if strings.EqualFold(strings.TrimSpace(req.AssignPublicIp), "yes") {
 		steps = append(steps, "public-ip-association")
+	}
+	if len(req.AdditionalDisk) > 0 {
+		steps = append(steps, "additional-disk-association")
 	}
 
 	if len(steps) == 0 {

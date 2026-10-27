@@ -5,6 +5,8 @@ description: |-
   Associates one or more security groups with a virtual machine. Attach and detach are asynchronous; the provider polls audit logs.
 ---
 
+
+
 # `vayucloud_virtualmachine_security_group_association`
 
 Attaches security groups to a virtual machine. Destroy detaches the same set. Changing `security_group_ids` detaches removed IDs and attaches newly added IDs.

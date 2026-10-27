@@ -5,6 +5,8 @@ description: |-
   Attaches, resizes, or removes an extra block storage volume on a VayuCloud virtual machine. Create, resize, and delete use platform validation and audit polling.
 ---
 
+
+
 # `vayucloud_virtualmachine_blockstorage`
 
 Manages **one** attachable block volume for an existing virtual machine: **create** runs attach-volume validation (also at plan time for new attachments), then attaches the volume and waits for audit completion; **update** increases `size` using the same validate-and-resize flow as [`vayucloud_virtualmachine`](virtualmachine.md); **delete** removes the volume from the instance.
@@ -29,7 +31,7 @@ resource "vayucloud_virtualmachine_blockstorage" "data_disk" {
 * `instance_id` — (Number) Virtual machine instance identifier. Changing forces replacement.
 * `name` — (String) Volume name. Between 5 and 45 characters; alphanumeric, spaces, and underscores only. Changing forces replacement.
 * `size` — (Number) Size in GB. Must be between **10** and **5000** and a **multiple of 10**. Can be increased in place; decreasing size is not supported by this update path.
-* `iops` — (Number) IOPS tier: **1**, **3**, or **5**. Changing forces replacement.
+* `iops` — (Number) IOPS tier: **1**, **3**, or **5** (IOPS/GB). Changing forces replacement.
 
 ### Optional / computed
 
@@ -41,7 +43,7 @@ In addition to the arguments above, the following attributes are exported:
 
 * `id` — (Number) Volume (disk) identifier after attach.
 * `created_date` — (String) Creation timestamp from the API.
-* `audit_id` — (String) Audit ID from the last completed async operation.
+* `audit_id` — (String) Audit ID from the last completed asynchronous operation.
 * `status` — (String) Status from that operation.
 
 ## Import

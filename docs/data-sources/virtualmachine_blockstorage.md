@@ -5,6 +5,8 @@ description: |-
   Reads one attached block storage volume on a virtual machine by instance ID and volume ID (instance detail API).
 ---
 
+
+
 # `vayucloud_virtualmachine_blockstorage`
 
 Returns attributes for a **single** attached volume on a VM. Use [`vayucloud_virtualmachine`](virtualmachine.md) if you need the full instance, including every volume in `volumes`.
@@ -36,6 +38,6 @@ output "disk_size_gb" {
 * `id` — (String) Computed datastore key from the provider; do not rely on a specific formatting—use `instance_id` and `volume_id` as the stable inputs.
 * `name` — (String) Volume name.
 * `size` — (Number) Size in GB.
-* `iops` — (Number) IOPS value for the volume.
+* `iops` — (Number) IOPS tier (**1**, **3**, or **5** IOPS/GB) as returned by the API for the volume.
 * `disk_type` — (String) Disk type from the API (for example `SSD`, `HDD`, or `root` when applicable).
 * `created_date` — (String) Volume creation date from the API.

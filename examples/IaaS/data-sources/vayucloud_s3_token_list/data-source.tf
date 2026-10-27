@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Token List Data Source Example
+# VayuCloud S3 Token List Data Source Example
 #
 # Lists tokens for a user (or domain-wide when user_name is omitted).
 
@@ -30,7 +30,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

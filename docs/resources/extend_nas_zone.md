@@ -5,6 +5,8 @@ description: |-
   Extends a NAS VLAN network zone for a file server (extendNASZone). Destroy calls deconfigureNASZone only; it does not delete the zone.
 ---
 
+
+
 # `vayucloud_extend_nas_zone`
 
 Invokes the platform **extend NAS zone** API to wire a NAS VLAN zone to a vServer. Operations are **synchronous** (no audit polling); responses are stored in `raw_response`.

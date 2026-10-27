@@ -77,7 +77,7 @@ func (d *C2SVPNReadData) EffectiveVPNUserCount() int {
 
 // CreateC2SVPN starts VPN provisioning for a firewall.
 //
-// POST {APIURL}/uat-networkservice/network_operations/vpn/{firewallId}
+// POST {APIURL}/network_operations/vpn/{firewallId}
 func CreateC2SVPN(c *client.Client, ctx context.Context, firewallID int64, req *CreateC2SVPNRequest) (*client.AuditResponse, error) {
 	tflog.Debug(ctx, "Creating C2S VPN", map[string]any{
 		"firewall_id": firewallID,
@@ -174,7 +174,7 @@ func ReadC2SVPN(c *client.Client, ctx context.Context, resourceID int64) (*commo
 
 // AddVPNUsers adds users (operation=create).
 //
-// POST {APIURL}/uat-networkservice/network_operations/vpn/users/{firewallId}
+// POST {APIURL}/network_operations/vpn/users/{firewallId}
 func AddVPNUsers(c *client.Client, ctx context.Context, firewallID int64, users []VPNUserEntry) (*client.AuditResponse, error) {
 	req := VPNUsersCreateRequest{
 		Operation: "create",
@@ -218,7 +218,7 @@ func postVPNUsers(c *client.Client, ctx context.Context, firewallID int64, body 
 
 // RemoveVPNUsers removes users by name.
 //
-// POST {APIURL}/uat-networkservice/network_operations/vpn/users/{firewallId}
+// POST {APIURL}/network_operations/vpn/users/{firewallId}
 func RemoveVPNUsers(c *client.Client, ctx context.Context, firewallID int64, names []string) (*client.AuditResponse, error) {
 	users := make([]VPNUserNameOnly, 0, len(names))
 	for _, n := range names {
@@ -297,7 +297,7 @@ func RemoveVPNUsersAndWait(c *client.Client, ctx context.Context, firewallID int
 
 // DeleteC2SVPN deletes the VPN for a firewall.
 //
-// DELETE {APIURL}/uat-networkservice/network_operations/vpn/{firewallId}
+// DELETE {APIURL}/network_operations/vpn/{firewallId}
 func DeleteC2SVPN(c *client.Client, ctx context.Context, firewallID int64) (*client.AuditResponse, error) {
 	path := fmt.Sprintf("%s/vpn/%d", common.NetworkOperationsPath, firewallID)
 	respBody, err := c.DoRequest(ctx, http.MethodDelete, path, nil)

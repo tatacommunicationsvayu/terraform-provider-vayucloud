@@ -32,15 +32,15 @@ type FileStorageDataSource struct {
 }
 
 type fileStorageDataSourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	EngagementID       types.Int64  `tfsdk:"engagement_id"`
-	FileServerID       types.String `tfsdk:"file_server_id"`
-	Name               types.String `tfsdk:"name"`
-	VolumeID           types.String `tfsdk:"volume_id"`
-	FileServerName     types.String `tfsdk:"file_server_name"`
-	Clients            types.List   `tfsdk:"clients"`
-	SizeGb             types.Int64  `tfsdk:"size_gb"`
-	RawResponse        types.String `tfsdk:"raw_response"`
+	ID             types.String `tfsdk:"id"`
+	EngagementID   types.Int64  `tfsdk:"engagement_id"`
+	FileServerID   types.String `tfsdk:"file_server_id"`
+	Name           types.String `tfsdk:"name"`
+	VolumeID       types.String `tfsdk:"volume_id"`
+	FileServerName types.String `tfsdk:"file_server_name"`
+	Clients        types.List   `tfsdk:"clients"`
+	SizeGb         types.Int64  `tfsdk:"size_gb"`
+	RawResponse    types.String `tfsdk:"raw_response"`
 }
 
 func (d *FileStorageDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -49,8 +49,8 @@ func (d *FileStorageDataSource) Metadata(ctx context.Context, req datasource.Met
 
 func (d *FileStorageDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads one NAS file storage volume using fetchVolumeDetails.",
-		MarkdownDescription: "Calls `GET .../nas/fetchVolumeDetails/{engagement_id}/{file_server_id}/{name}` (portal `uat-portalservice/nas` prefix). Supply `engagement_id`, `file_server_id` (platform vserver id), and `name` (volume name). Returns volume id, file server display name, size, and attached client IPs.",
+		Description:         "Reads one NAS file storage volume using fetchVolumeDetails.",
+		MarkdownDescription: "Calls `GET .../nas/fetchVolumeDetails/{engagement_id}/{file_server_id}/{name}`. Supply `engagement_id`, `file_server_id` (platform vserver id), and `name` (volume name). Returns volume id, file server display name, size, and attached client IPs.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Synthetic identifier for this data source instance.",

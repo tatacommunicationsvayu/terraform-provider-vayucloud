@@ -5,6 +5,8 @@ description: |-
   Lists network zones for an environment. Optional filter blocks narrow results client-side.
 ---
 
+
+
 # `vayucloud_network_zone_list`
 
 Returns all zones in a given environment. Use [`vayucloud_network_zone`](network_zone.md) to read one zone by ID.

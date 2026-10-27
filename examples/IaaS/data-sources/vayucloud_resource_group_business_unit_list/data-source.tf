@@ -1,6 +1,6 @@
 # VayuCloud Resource Group Business Unit List Data Source Example
 #
-# Lists business units for a firewall.
+# Lists business units for a firewall (resource ID and name per entry).
 
 terraform {
   required_providers {
@@ -51,6 +51,11 @@ data "vayucloud_resource_group_business_unit_list" "filtered" {
 }
 
 output "business_units" {
-  description = "Business units returned for the firewall"
-  value       = data.vayucloud_resource_group_business_unit_list.filtered.business_units
+  description = "Business unit IDs and names for the firewall"
+  value = [
+    for bu in data.vayucloud_resource_group_business_unit_list.filtered.business_units : {
+      id   = bu.resource_group_business_unit_id
+      name = bu.business_unit
+    }
+  ]
 }

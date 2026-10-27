@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Object Resource Example
+# VayuCloud S3 Object Resource Example
 #
 # Object CRUD is synchronous (no audit log / action-state).
 # Parent vayucloud_s3_bucket must exist first.
@@ -31,7 +31,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

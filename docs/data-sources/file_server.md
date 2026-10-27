@@ -5,6 +5,8 @@ description: |-
   Reads a NAS file server (vserver) by vserver ID.
 ---
 
+
+
 # `vayucloud_file_server`
 
 ```hcl

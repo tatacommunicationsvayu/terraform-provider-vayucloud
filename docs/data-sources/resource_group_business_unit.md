@@ -5,9 +5,11 @@ description: |-
   Reads a single business unit by resource identifier.
 ---
 
+
+
 # `vayucloud_resource_group_business_unit`
 
-Returns details for one business unit. To list all business units on a firewall, use [`vayucloud_resource_group_business_unit_list`](resource_group_business_unit_list.md).
+Returns the business unit name and API metadata for one resource ID. User membership is not exposed by this data source. To list all business units on a firewall, use [`vayucloud_resource_group_business_unit_list`](resource_group_business_unit_list.md).
 
 ## Example Usage
 
@@ -27,7 +29,6 @@ data "vayucloud_resource_group_business_unit" "example" {
 
 * `id` — (String) Computed placeholder for Terraform.
 * `business_unit` — (String) Business unit name.
-* `users` — (List of String) Associated user email addresses.
 * `status` — (String) API status (for example `success`).
 * `message` — (String) API message.
 * `response_code` — (Number) API response code (`0` indicates success).

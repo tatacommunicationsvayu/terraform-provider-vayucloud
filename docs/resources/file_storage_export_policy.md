@@ -5,6 +5,8 @@ description: |-
   Attaches a client IP to a NAS volume export (NFS/CIFS attachClient). Create and delete are asynchronous.
 ---
 
+
+
 # `vayucloud_file_storage_export_policy`
 
 Associates a **client IP** with a NAS volume export (`attachClient` / `detachClient`). Without optional drift fields, refresh keeps Terraform state as-is. Set `engagement_id` and `file_server_id` to reconcile `client_ip` against `fetchVolumeDetails` on refresh.

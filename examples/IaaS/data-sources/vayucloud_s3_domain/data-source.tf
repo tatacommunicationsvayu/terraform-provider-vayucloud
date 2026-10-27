@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Domain Data Source Example
+# VayuCloud S3 Domain Data Source Example
 #
 # Reads one S3 domain by resource ID (action-state module=domain, action=read).
 
@@ -30,7 +30,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

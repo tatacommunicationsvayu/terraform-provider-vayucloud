@@ -5,6 +5,8 @@ description: |-
   Lists C2S VPN usernames for a firewall using the same read API as vayucloud_network_c2s_vpn.
 ---
 
+
+
 # `vayucloud_network_c2s_vpn_users`
 
 Returns the **user name list** for the C2S VPN on a firewall. Calls the same action-state read as [`vayucloud_network_c2s_vpn`](network_c2s_vpn.md) and exposes only `firewall_id` and `users` (names). Use [`vayucloud_network_c2s_vpn`](network_c2s_vpn.md) when you need the full VPN payload (PSK, IP, peer ID, and so on).

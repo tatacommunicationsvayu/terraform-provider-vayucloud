@@ -9,7 +9,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/tatacommunications/terraform-provider-vayucloud/internal/client"
@@ -30,7 +29,6 @@ type ResourceGroupBusinessUnitListDataSource struct {
 type BusinessUnitListItemModel struct {
 	ResourceGroupBusinessUnitID types.Int64  `tfsdk:"resource_group_business_unit_id"`
 	BusinessUnit                types.String `tfsdk:"business_unit"`
-	Users                       types.List   `tfsdk:"users"`
 }
 
 // ResourceGroupBusinessUnitListDataSourceModel describes the data source data model.
@@ -86,11 +84,6 @@ func (d *ResourceGroupBusinessUnitListDataSource) Schema(ctx context.Context, re
 						"business_unit": schema.StringAttribute{
 							Description: "The name of the business unit.",
 							Computed:    true,
-						},
-						"users": schema.ListAttribute{
-							Description: "The list of user emails associated with the business unit.",
-							Computed:    true,
-							ElementType: types.StringType,
 						},
 					},
 				},
@@ -178,28 +171,9 @@ func (d *ResourceGroupBusinessUnitListDataSource) Read(ctx context.Context, req 
 
 	businessUnits := make([]BusinessUnitListItemModel, len(items))
 	for i, bu := range items {
-		var usersList types.List
-		var diags diag.Diagnostics
-		if bu.Users == nil {
-			usersList = types.ListNull(types.StringType)
-		} else if rawSlice, ok := bu.Users.([]interface{}); ok {
-			strs := make([]string, 0, len(rawSlice))
-			for _, v := range rawSlice {
-				strs = append(strs, fmt.Sprintf("%v", v))
-			}
-			usersList, diags = types.ListValueFrom(ctx, types.StringType, strs)
-		} else {
-			usersList = types.ListNull(types.StringType)
-		}
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
 		businessUnits[i] = BusinessUnitListItemModel{
 			ResourceGroupBusinessUnitID: types.Int64Value(bu.ID),
 			BusinessUnit:                types.StringValue(bu.BusinessUnit),
-			Users:                       usersList,
 		}
 	}
 

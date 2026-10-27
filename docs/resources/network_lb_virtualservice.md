@@ -5,6 +5,8 @@ description: |-
   Manages an HAProxy Virtual Service on a VayuCloud Load Balancer. Create, update, and delete operations are asynchronous where the platform requires audit polling.
 ---
 
+
+
 # `vayucloud_network_lb_virtualservice`
 
 Manages an HAProxy virtual service (listener, pool, and health monitors) on an existing load balancer.

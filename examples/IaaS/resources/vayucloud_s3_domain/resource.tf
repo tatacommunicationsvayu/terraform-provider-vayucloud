@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Domain Resource Example
+# VayuCloud S3 Domain Resource Example
 #
 # Create is asynchronous: polls audit log until provisioned (~30 min; may take
 # longer while firewall mapping completes).
@@ -34,7 +34,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

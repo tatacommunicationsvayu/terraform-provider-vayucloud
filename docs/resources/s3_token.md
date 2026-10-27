@@ -5,6 +5,8 @@ description: |-
   Manages an S3 access token for a domain user. Synchronous create/delete; secret is only available at create.
 ---
 
+
+
 # `vayucloud_s3_token`
 
 Creates an access key / secret pair for an S3 user.

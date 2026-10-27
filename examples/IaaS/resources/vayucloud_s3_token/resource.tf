@@ -1,4 +1,4 @@
-﻿# VayuCloud S3 Token Resource Example
+# VayuCloud S3 Token Resource Example
 #
 # Token CRUD is synchronous. Parent vayucloud_s3_user must exist first
 # (except AI_STANDARD domains where user_name = "root" is pre-provisioned).
@@ -33,7 +33,7 @@ variable "vayucloud_password" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate verification (UAT only)."
+  description = "Skip TLS certificate verification (lab/non-production only; must be false in production)."
   default     = false
 }
 

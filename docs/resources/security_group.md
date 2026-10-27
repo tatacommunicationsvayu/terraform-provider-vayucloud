@@ -5,6 +5,8 @@ description: |-
   Manages a VayuCloud security group and its rules on a firewall. Create, rule changes, and delete are asynchronous where the platform requires audit polling.
 ---
 
+
+
 # `vayucloud_security_group`
 
 Manages a security group on a firewall and optionally creates rules under it.

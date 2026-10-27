@@ -5,6 +5,8 @@ description: |-
   Lists environments for a business unit. Optional filters narrow results client-side.
 ---
 
+
+
 # `vayucloud_resource_group_environment_list`
 
 Returns all environments under `business_unit_id`. Use [`vayucloud_resource_group_environment`](resource_group_environment.md) to read one environment by ID.

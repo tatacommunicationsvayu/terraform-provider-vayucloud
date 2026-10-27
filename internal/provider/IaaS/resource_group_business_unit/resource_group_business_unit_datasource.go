@@ -39,9 +39,6 @@ type ResourceGroupBusinessUnitDataSourceModel struct {
 	// BusinessUnit is the name of the business unit
 	BusinessUnit types.String `tfsdk:"business_unit"`
 
-	// Users is the list of user emails associated with the business unit
-	Users types.List `tfsdk:"users"`
-
 	// Status is the API response status (e.g., "success")
 	Status types.String `tfsdk:"status"`
 
@@ -78,12 +75,6 @@ func (d *ResourceGroupBusinessUnitDataSource) Schema(ctx context.Context, req da
 				Description:         "The name of the business unit.",
 				MarkdownDescription: "The name of the business unit.",
 				Computed:            true,
-			},
-			"users": schema.ListAttribute{
-				Description:         "The list of user emails associated with the business unit.",
-				MarkdownDescription: "The list of user emails associated with the business unit.",
-				Computed:            true,
-				ElementType:         types.StringType,
 			},
 			"status": schema.StringAttribute{
 				Description:         "The API response status (e.g., 'success').",
@@ -172,14 +163,15 @@ func (d *ResourceGroupBusinessUnitDataSource) Read(ctx context.Context, req data
 		return
 	}
 
-	data.BusinessUnit = types.StringValue(responseMap["business_unit"].(string))
-
-	usersList, diags := types.ListValueFrom(ctx, types.StringType, responseMap["users"])
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	businessUnit, ok := responseMap["business_unit"].(string)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Invalid Business Unit Response",
+			"API response does not contain business_unit as a string",
+		)
 		return
 	}
-	data.Users = usersList
+	data.BusinessUnit = types.StringValue(businessUnit)
 
 	tflog.Info(ctx, "Resource group business unit read successfully", map[string]any{
 		"id":            data.ID.ValueString(),

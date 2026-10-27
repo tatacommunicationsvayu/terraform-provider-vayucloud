@@ -5,6 +5,8 @@ description: |-
   Reads detailed attributes for a single virtual machine by instance identifier (GET vm-instances detail API).
 ---
 
+
+
 # `vayucloud_virtualmachine`
 
 Returns full detail for one VM via the `vm-instances/{instanceId}` API. To list all VMs in a zone, use [`vayucloud_virtualmachine_list`](virtualmachine_list.md).
@@ -46,7 +48,7 @@ output "vm_ip" {
 * `pricing_model` — (String) Pricing model (for example `hourly`).
 * `vcpu` — (Number) vCPU count.
 * `vram` — (Number) Memory in MB.
-* `volumes` — (List of Object) Attached volumes; each object includes `id`, `name`, `size`, `disk_type`, `created_date`, and `iops` as returned by the API.
+* `volumes` — (List of Object) Attached volumes; each object includes `id`, `name`, `size`, `disk_type`, `created_date`, and `iops` (tier **1**, **3**, or **5** IOPS/GB) as returned by the API.
 * `status` — (String) API status (for example `success`).
 * `message` — (String) API message.
-* `response_code` — (Number) API response code (the provider documents `200` as success in schema; confirm against your environment).
+* `response_code` — (Number) API response code returned by the VM detail API. This API uses the platform envelope convention; do not assume HTTP `200` is the only success indicator.
