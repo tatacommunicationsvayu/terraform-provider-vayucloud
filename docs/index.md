@@ -11,7 +11,7 @@ The VayuCloud provider is used to interact with the resources supported by the V
 
 The provider authenticates against the TATA Communications identity provider and uses a Bearer token for API requests. Long-running operations are handled by polling audit logs until completion, so applies can span several minutes for resources such as firewalls and virtual machines.
 
-> Documentation version: maintained with the provider source. Last reviewed: 2026-10-14.
+> Documentation version: maintained with the provider source. Last reviewed: 2026-10-27.
 
 ## Contents
 
